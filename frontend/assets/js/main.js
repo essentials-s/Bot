@@ -1,43 +1,49 @@
 // frontend/assets/js/main.js
+
 (function() {
     'use strict';
 
+    // Инициализация EmailJS
+    (function() {
+        emailjs.init('eK_3lZjCFvgkwvuUZ'); // Замени на свой public key из EmailJS
+    })();
+
     const CONFIG = {
-        ADMIN_PASS: 'admin2011',
+        EMAILJS_SERVICE_ID: 'service_5sjv2tl', // Замени
+        EMAILJS_TEMPLATE_ID: 'template_4cs7weu', // Замени
+        SENDER_EMAIL: 'erdium@internet.ru',
+        MAX_NAME_LENGTH: 20,
+        MAX_USERNAME_LENGTH: 15,
     };
+
     window.CONFIG = CONFIG;
 
-    // Ждём полной загрузки DOM
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('DOM loaded, initializing...');
-        initApp();
-    });
+    // Состояние регистрации
+    const regState = {
+        name: '',
+        username: '',
+        email: '',
+        code: '',
+        generatedCode: '',
+        emailVerified: false,
+        codeSent: false,
+    };
 
-    function initApp() {
-        // Загружаем пользователя
+    function init() {
         const savedUser = loadUserFromStorage();
         
-        if (savedUser && savedUser.name && savedUser.username) {
-            // Пользователь зарегистрирован - показываем чат
+        if (savedUser && savedUser.name && savedUser.username && savedUser.emailVerified) {
             showChat();
-            currentUser = savedUser;
-            
-            // Подключаемся и регистрируем
+            enableMessageInput();
             setTimeout(function() {
-                if (typeof registerUser === 'function') {
-                    registerUser(savedUser.name, savedUser.username);
-                }
-            }, 1500);
+                registerUser(savedUser.name, savedUser.username);
+            }, 1000);
         } else {
-            // Новый пользователь - показываем регистрацию
             showRegistration();
         }
         
-        // Инициализируем регистрацию
-        setupRegistration();
-        
-        // Загружаем настройки
-        loadSettings();
+        initRegistration();
+        requestNotificationPermission();
     }
 
     function showRegistration() {
@@ -50,206 +56,216 @@
         document.getElementById('chatContainer').style.display = 'flex';
     }
 
-    function loadSettings() {
-        const theme = localStorage.getItem('chat_theme') || 'dark';
-        const fontSize = localStorage.getItem('chat_fontSize') || 'medium';
-        const language = localStorage.getItem('chat_language') || 'ru';
-        
-        if (typeof applyTheme === 'function') applyTheme(theme);
-        if (typeof applyFontSize === 'function') applyFontSize(fontSize);
-        if (typeof setLanguage === 'function') setLanguage(language);
+    function enableMessageInput() {
+        var input = document.getElementById('msgInput');
+        if (input) {
+            input.disabled = false;
+            input.placeholder = 'Message...';
+        }
     }
 
-    function setupRegistration() {
+    function initRegistration() {
         var nameInput = document.getElementById('regName');
         var usernameInput = document.getElementById('regUsername');
+        var emailInput = document.getElementById('regEmail');
+        var codeInput = document.getElementById('regCode');
         var regBtn = document.getElementById('regBtn');
+        var sendCodeBtn = document.getElementById('sendCodeBtn');
+        var verifyCodeBtn = document.getElementById('verifyCodeBtn');
         var usernameStatus = document.getElementById('usernameStatus');
-        var avatarGroup = document.getElementById('avatarGroup');
-        var regAvatarBtn = document.getElementById('regAvatarBtn');
-        var regAvatar = document.getElementById('regAvatar');
-        var skipAvatar = document.getElementById('skipAvatar');
-        var avatarPreviewReg = document.getElementById('avatarPreviewReg');
-        var avatarImgReg = document.getElementById('avatarImgReg');
-
-        if (!nameInput || !usernameInput || !regBtn) {
-            console.error('Registration elements not found!');
-            return;
-        }
-
-        var avatarData = null;
-        var usernameOk = false;
-
-        // Аватар
-        if (regAvatarBtn) {
-            regAvatarBtn.addEventListener('click', function() {
-                if (regAvatar) regAvatar.click();
-            });
-        }
-        
-        if (regAvatar) {
-            regAvatar.addEventListener('change', function(e) {
-                var file = e.target.files[0];
-                if (file) {
-                    if (file.size > 5 * 1024 * 1024) {
-                        alert('File too large');
-                        return;
-                    }
-                    var reader = new FileReader();
-                    reader.onload = function(ev) {
-                        avatarData = ev.target.result;
-                        if (avatarImgReg) {
-                            avatarImgReg.src = avatarData;
-                        }
-                        if (avatarPreviewReg) {
-                            avatarPreviewReg.style.display = 'block';
-                        }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        if (skipAvatar) {
-            skipAvatar.addEventListener('click', function() {
-                avatarData = null;
-                if (avatarPreviewReg) avatarPreviewReg.style.display = 'none';
-                doRegister();
-            });
-        }
-
-        // Проверка формы
-        function checkForm() {
-            var name = nameInput.value.trim();
-            var username = usernameInput.value.trim();
-            var nameValid = name.length >= 1 && name.length <= 20;
-            var usernameFormat = username.length >= 3 && username.length <= 15 && /^[a-zA-Z0-9_]+$/.test(username);
-            
-            if (nameValid && usernameFormat && avatarGroup) {
-                avatarGroup.style.display = 'block';
-            }
-            
-            // Кнопка активна только если всё ок и username проверен
-            regBtn.disabled = !(nameValid && usernameFormat && usernameOk);
-        }
-
-        nameInput.addEventListener('input', checkForm);
-        usernameInput.addEventListener('input', function() {
-            usernameOk = false;
-            checkForm();
-            checkUsername();
-        });
+        var emailStatus = document.getElementById('emailStatus');
+        var codeStatus = document.getElementById('codeStatus');
+        var codeGroup = document.getElementById('codeGroup');
 
         // Проверка username
-        function checkUsername() {
+        var checkUsernameDebounced = debounce(function() {
             var username = usernameInput.value.trim();
-            if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
-                if (usernameStatus) {
+            if (username.length < 3) {
+                usernameStatus.textContent = '';
+                usernameStatus.className = '';
+                updateRegButton();
+                return;
+            }
+            if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+                usernameStatus.textContent = 'Invalid characters';
+                usernameStatus.className = 'error';
+                updateRegButton();
+                return;
+            }
+            
+            fetch(API_URL + '/api/check-username/' + username)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.available) {
+                        usernameStatus.textContent = 'Available';
+                        usernameStatus.className = 'success';
+                    } else {
+                        usernameStatus.textContent = 'Taken';
+                        usernameStatus.className = 'error';
+                    }
+                    updateRegButton();
+                })
+                .catch(function() {
                     usernameStatus.textContent = '';
-                    usernameStatus.className = '';
-                }
+                    updateRegButton();
+                });
+        }, 500);
+
+        usernameInput.addEventListener('input', checkUsernameDebounced);
+
+        // Отправка кода на email
+        sendCodeBtn.addEventListener('click', function() {
+            var email = emailInput.value.trim();
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                emailStatus.textContent = 'Enter valid email';
+                emailStatus.style.color = 'var(--danger)';
                 return;
             }
 
-            var apiUrl = (window.API_URL || '') + '/api/check-username/' + encodeURIComponent(username);
-            
-            fetch(apiUrl)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    if (data.available) {
-                        usernameOk = true;
-                        if (usernameStatus) {
-                            usernameStatus.textContent = 'Username available';
-                            usernameStatus.className = 'success';
-                        }
-                    } else {
-                        usernameOk = false;
-                        if (usernameStatus) {
-                            usernameStatus.textContent = 'Username taken';
-                            usernameStatus.className = 'error';
-                        }
-                    }
-                    checkForm();
-                })
-                .catch(function() {
-                    // Если сервер недоступен - разрешаем
-                    usernameOk = true;
-                    checkForm();
-                });
-        }
+            sendCodeBtn.disabled = true;
+            sendCodeBtn.textContent = 'Sending...';
+            emailStatus.textContent = 'Sending code...';
+            emailStatus.style.color = 'var(--text-secondary)';
 
-        // Кнопка регистрации
-        regBtn.addEventListener('click', doRegister);
-        
-        usernameInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !regBtn.disabled) {
-                doRegister();
+            // Генерируем 6-значный код
+            regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+            regState.email = email;
+
+            // Отправляем через EmailJS
+            var templateParams = {
+                to_email: email,
+                to_name: nameInput.value || 'User',
+                code: regState.generatedCode,
+                from_name: 'World Chat'
+            };
+
+            emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, templateParams)
+                .then(function() {
+                    emailStatus.textContent = 'Code sent to ' + email;
+                    emailStatus.style.color = 'var(--success)';
+                    regState.codeSent = true;
+                    codeGroup.style.display = 'block';
+                    codeInput.focus();
+                    sendCodeBtn.textContent = 'Resend';
+                    sendCodeBtn.disabled = false;
+                    updateRegButton();
+                })
+                .catch(function(error) {
+                    console.error('EmailJS error:', error);
+                    emailStatus.textContent = 'Failed to send. Try again.';
+                    emailStatus.style.color = 'var(--danger)';
+                    sendCodeBtn.textContent = 'Send Code';
+                    sendCodeBtn.disabled = false;
+                    regState.codeSent = false;
+                });
+        });
+
+        // Проверка кода
+        verifyCodeBtn.addEventListener('click', function() {
+            var code = codeInput.value.trim();
+            if (code.length !== 6) {
+                codeStatus.textContent = 'Enter 6-digit code';
+                codeStatus.style.color = 'var(--danger)';
+                return;
+            }
+
+            if (code === regState.generatedCode) {
+                regState.emailVerified = true;
+                codeStatus.textContent = 'Verified!';
+                codeStatus.style.color = 'var(--success)';
+                codeInput.disabled = true;
+                verifyCodeBtn.disabled = true;
+                codeInput.style.borderColor = 'var(--success)';
+                updateRegButton();
+            } else {
+                codeStatus.textContent = 'Wrong code';
+                codeStatus.style.color = 'var(--danger)';
+                regState.emailVerified = false;
+                codeInput.value = '';
+                codeInput.focus();
             }
         });
 
-        function doRegister() {
-            var name = nameInput.value.trim();
-            var username = usernameInput.value.trim();
+        // Ввод кода
+        codeInput.addEventListener('input', function() {
+            codeInput.value = codeInput.value.replace(/[^0-9]/g, '');
+            if (codeInput.value.length === 6) {
+                verifyCodeBtn.click();
+            }
+        });
 
-            if (!name || !username) return;
+        // Обновление кнопки регистрации
+        function updateRegButton() {
+            var nameValid = nameInput.value.trim().length >= 1;
+            var usernameValid = usernameStatus.className === 'success';
+            var emailValid = regState.emailVerified;
+            
+            regBtn.disabled = !(nameValid && usernameValid && emailValid);
+            
+            if (!nameValid) regBtn.textContent = 'Enter name';
+            else if (!usernameValid) regBtn.textContent = 'Username not available';
+            else if (!emailValid) regBtn.textContent = 'Verify email first';
+            else regBtn.textContent = 'Enter Chat';
+        }
 
-            // Сохраняем
-            currentUser = {
-                id: 'u_' + Date.now(),
-                name: name,
-                username: username,
-                avatar: avatarData || '',
-                verified: false,
-                badge: '',
+        nameInput.addEventListener('input', function() {
+            regState.name = nameInput.value.trim();
+            updateRegButton();
+        });
+
+        // Кнопка входа
+        regBtn.addEventListener('click', function() {
+            if (regBtn.disabled) return;
+            
+            var user = {
+                id: wsUserId || generateId(),
+                name: nameInput.value.trim(),
+                username: usernameInput.value.trim(),
+                email: regState.email,
+                emailVerified: true,
+                avatar: '',
+                verified: true,
+                badge: ''
             };
 
-            try {
-                localStorage.setItem('chat_user', JSON.stringify(currentUser));
-            } catch(e) {}
-
-            // Отправляем на сервер
-            if (typeof registerUser === 'function') {
-                registerUser(name, username);
-            }
-
-            // Показываем чат
+            currentUser = user;
+            saveUserToStorage(user);
+            registerUser(user.name, user.username);
             showChat();
+            enableMessageInput();
+            showSuccess('Welcome, ' + user.name + '!');
+        });
 
-            // Аватар
-            if (avatarData && typeof updateProfile === 'function') {
-                setTimeout(function() {
-                    updateProfile(name, avatarData);
-                }, 500);
-            }
+        // Enter на поле кода
+        emailInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') sendCodeBtn.click();
+        });
 
-            if (typeof showToast === 'function') {
-                showToast('Welcome, ' + name + '!');
-            }
-        }
+        updateRegButton();
     }
 
-    // Глобальные ссылки
+    // Экспорт
     window.showUserProfile = showUserProfile;
     window.openMediaViewer = openMediaViewer;
     window.closeMediaViewer = closeMediaViewer;
+    window.downloadMedia = downloadMedia;
     window.toggleVoicePlay = toggleVoicePlay;
     window.votePoll = votePoll;
     window.cancelReply = cancelReply;
     window.handleLinkClick = handleLinkClick;
-    window.showDeleteConfirmation = showDeleteConfirmation;
     window.openReportModal = openReportModal;
     window.startEditMessage = startEditMessage;
     window.cancelEdit = cancelEdit;
     window.setReply = setReply;
     window.scrollToMessage = scrollToMessage;
+    window.copyToClipboard = copyToClipboard;
     window.sendReaction = sendReaction;
     window.openSettings = openSettings;
     window.closeSettings = closeSettings;
     window.changeNamePrompt = changeNamePrompt;
     window.uploadAvatar = uploadAvatar;
-    window.startVerification = startVerification;
     window.exportHistory = exportHistory;
     window.openProblemReport = openProblemReport;
 
-    console.log('main.js loaded');
+    document.addEventListener('DOMContentLoaded', init);
 })();

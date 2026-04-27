@@ -13,37 +13,48 @@
         <!-- Регистрация -->
         <div id="registration" class="overlay">
             <div class="modal">
-                <h2 data-i18n="regTitle">World Chat</h2>
-                <p data-i18n="regSubtitle">Choose your name and username</p>
+                <h2>World Chat</h2>
+                <p>Choose your name and username</p>
+                
                 <div class="input-group">
-                    <input type="text" id="regName" data-i18n-placeholder="regNamePlaceholder" placeholder="Name" maxlength="20" autocomplete="off">
+                    <input type="text" id="regName" placeholder="Name" maxlength="20" autocomplete="off">
                 </div>
+                
                 <div class="input-group">
-                    <input type="text" id="regUsername" data-i18n-placeholder="regUsernamePlaceholder" placeholder="Username" maxlength="15" autocomplete="off">
+                    <input type="text" id="regUsername" placeholder="Username" maxlength="15" autocomplete="off">
                     <span id="usernameStatus"></span>
                 </div>
-                <div class="input-group" id="avatarGroup" style="display:none">
-                    <label data-i18n="regAvatarLabel">Avatar (optional)</label>
-                    <div style="display:flex;gap:8px;align-items:center;margin-top:6px">
-                        <input type="file" id="regAvatar" accept="image/*" style="display:none">
-                        <button id="regAvatarBtn" class="btn-secondary" style="flex:1">Choose file</button>
-                        <button id="skipAvatar" class="btn-secondary" data-i18n="regSkipAvatar">Skip</button>
+                
+                <!-- Email верификация -->
+                <div class="input-group" id="emailGroup">
+                    <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Email verification (required)</label>
+                    <div style="display:flex;gap:6px">
+                        <input type="email" id="regEmail" placeholder="your@email.com" style="flex:1">
+                        <button id="sendCodeBtn" class="btn-secondary" style="width:auto;white-space:nowrap;padding:8px 14px">Send Code</button>
                     </div>
-                    <div id="avatarPreviewReg" style="margin-top:8px;display:none">
-                        <img id="avatarImgReg" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--border-light)">
-                    </div>
+                    <span id="emailStatus" style="font-size:11px;display:block;margin-top:4px"></span>
                 </div>
-                <button id="regBtn" class="btn-primary" data-i18n="regEnterChat" disabled>Enter Chat</button>
+                
+                <!-- Поле для кода -->
+                <div class="input-group" id="codeGroup" style="display:none">
+                    <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Verification code</label>
+                    <div style="display:flex;gap:6px">
+                        <input type="text" id="regCode" placeholder="Enter 6-digit code" maxlength="6" autocomplete="off" style="flex:1;text-align:center;letter-spacing:4px;font-size:18px">
+                        <button id="verifyCodeBtn" class="btn-primary" style="width:auto;white-space:nowrap;padding:8px 14px">Verify</button>
+                    </div>
+                    <span id="codeStatus" style="font-size:11px;display:block;margin-top:4px"></span>
+                </div>
+                
+                <button id="regBtn" class="btn-primary" disabled>Enter Chat</button>
             </div>
         </div>
 
         <!-- Основной чат -->
         <div id="chatContainer" class="chat-container" style="display:none">
-            <!-- Хедер -->
             <div class="chat-header">
                 <span class="icon">&#127760;</span>
                 <div class="header-info">
-                    <h3 data-i18n="chatTitle">World Chat</h3>
+                    <h3>World Chat</h3>
                     <span id="connectionStatus">● Connecting...</span>
                 </div>
                 <span id="onlineCount" class="badge">● 0</span>
@@ -51,7 +62,6 @@
                 <button id="menuBtn" class="icon-btn" title="Menu">&#8942;</button>
             </div>
 
-            <!-- Закреплённое сообщение -->
             <div id="pinnedMessage" class="pinned-message" style="display:none">
                 <div class="pinned-content">
                     <span class="pinned-icon">&#128204;</span>
@@ -60,18 +70,15 @@
                 <button id="unpinBtn" class="icon-btn-sm">&#10005;</button>
             </div>
 
-            <!-- Область сообщений -->
             <div class="messages-container" id="messagesContainer">
                 <div class="system-msg" id="welcomeMsg"></div>
             </div>
 
-            <!-- Кнопка скролла вниз -->
-            <button id="scrollBtn" class="scroll-btn" style="display:none" title="Scroll to bottom">
+            <button id="scrollBtn" class="scroll-btn" style="display:none">
                 &#8595;
                 <span id="unreadCount" class="unread-badge" style="display:none">0</span>
             </button>
 
-            <!-- Превью ответа -->
             <div id="replyPreview" class="reply-preview" style="display:none">
                 <div class="rp-info">
                     <span id="rpName"></span>
@@ -80,30 +87,20 @@
                 <button id="rpClose" class="icon-btn-sm">&#10005;</button>
             </div>
 
-            <!-- Индикатор редактирования -->
-            <div id="editingIndicator" class="reply-preview" style="display:none;border-left-color:var(--warning)">
-                <div class="rp-info">
-                    <span style="color:var(--warning)">Editing message</span>
-                </div>
-                <button class="icon-btn-sm" onclick="cancelEdit()">&#10005;</button>
-            </div>
-
-            <!-- Индикатор печати -->
             <div id="typingIndicator" class="typing-indicator" style="display:none">
                 <span id="typingText"></span>
             </div>
 
-            <!-- Поле ввода -->
             <div class="input-area">
                 <button id="plusBtn" class="icon-btn" title="Attach">+</button>
                 <div class="input-box">
                     <div id="mediaPreview" class="media-preview" style="display:none"></div>
-                    <textarea id="msgInput" data-i18n-placeholder="messagePlaceholder" placeholder="Message..." rows="1" maxlength="500"></textarea>
+                    <textarea id="msgInput" placeholder="Message..." rows="1" maxlength="500" disabled></textarea>
                 </div>
-                <button id="sendBtn" class="send-btn" disabled title="Send">
-                    <span id="sendIcon">&#10132;</span>
+                <button id="sendBtn" class="send-btn" disabled>
+                    <span>&#10132;</span>
                 </button>
-                <button id="micBtn" class="send-btn mic-btn" style="display:none" title="Voice message">
+                <button id="micBtn" class="send-btn mic-btn" style="display:none">
                     <span>&#127908;</span>
                 </button>
             </div>
@@ -111,80 +108,68 @@
 
         <!-- Меню -->
         <div id="menuDropdown" class="dropdown" style="display:none">
-            <button class="dropdown-item" data-action="settings">&#9881; Settings</button>
-            <button class="dropdown-item" data-action="clear-chat">&#128465; Clear Chat</button>
-            <button class="dropdown-item" data-action="delete-mode">&#10060; Delete Messages</button>
-            <button class="dropdown-item" data-action="export">&#128229; Export History</button>
+            <button class="dropdown-item" data-action="settings">Settings</button>
+            <button class="dropdown-item" data-action="clear-chat">Clear Chat</button>
+            <button class="dropdown-item" data-action="delete-mode">Delete Messages</button>
+            <button class="dropdown-item" data-action="export">Export History</button>
         </div>
 
-        <!-- Меню вложений -->
         <div id="attachMenu" class="dropdown" style="display:none">
-            <button class="dropdown-item" data-action="photo">&#128247; Photo</button>
-            <button class="dropdown-item" data-action="video">&#127910; Video</button>
-            <button class="dropdown-item" data-action="file">&#128196; File</button>
-            <button class="dropdown-item" data-action="camera">&#128248; Camera</button>
-            <button class="dropdown-item" data-action="poll">&#128200; Poll</button>
-            <button class="dropdown-item" data-action="quiz">&#10067; Quiz</button>
+            <button class="dropdown-item" data-action="photo">Photo</button>
+            <button class="dropdown-item" data-action="video">Video</button>
+            <button class="dropdown-item" data-action="file">File</button>
+            <button class="dropdown-item" data-action="camera">Camera</button>
+            <button class="dropdown-item" data-action="poll">Poll</button>
+            <button class="dropdown-item" data-action="quiz">Quiz</button>
         </div>
 
-        <!-- Контекстное меню (ПКМ) -->
         <div id="contextMenu" class="dropdown" style="display:none"></div>
 
-        <!-- Просмотрщик медиа -->
         <div id="mediaViewer" class="overlay" style="display:none">
             <button id="closeViewer" class="close-btn">&#10005;</button>
             <button id="viewerMenu" class="close-btn" style="right:60px">&#8942;</button>
             <div id="mediaContent"></div>
         </div>
 
-        <!-- Страница настроек -->
         <div id="settingsPage" class="page" style="display:none"></div>
-
-        <!-- Профиль пользователя -->
         <div id="profileModal" class="overlay" style="display:none"></div>
 
-        <!-- Подтверждение ссылки -->
         <div id="linkModal" class="overlay" style="display:none">
             <div class="modal">
-                <h3 data-i18n="confirmLinkTitle">External Link</h3>
-                <p data-i18n="confirmLinkText">Are you sure you want to open this link?</p>
+                <h3>External Link</h3>
+                <p>Are you sure you want to open this link?</p>
                 <p id="linkUrl" class="link-text"></p>
                 <div style="display:flex;gap:8px">
-                    <button id="openLink" class="btn-primary" data-i18n="openLink">Open</button>
-                    <button id="cancelLink" class="btn-secondary" data-i18n="cancel">Cancel</button>
+                    <button id="openLink" class="btn-primary">Open</button>
+                    <button id="cancelLink" class="btn-secondary">Cancel</button>
                 </div>
             </div>
         </div>
 
-        <!-- Подтверждение удаления -->
         <div id="deleteModal" class="overlay" style="display:none">
             <div class="modal">
                 <h3>Delete Messages</h3>
                 <p id="deleteCount"></p>
                 <div style="display:flex;gap:8px">
                     <button id="confirmDelete" class="btn-danger">Delete</button>
-                    <button id="cancelDelete" class="btn-secondary" data-i18n="cancel">Cancel</button>
+                    <button id="cancelDelete" class="btn-secondary">Cancel</button>
                 </div>
             </div>
         </div>
 
-        <!-- Жалоба -->
         <div id="reportModal" class="overlay" style="display:none"></div>
-
-        <!-- Опрос/Викторина -->
         <div id="pollModal" class="overlay" style="display:none"></div>
-
-        <!-- Уведомление -->
         <div id="toast" class="toast"></div>
     </div>
 
-    <!-- Скрытые input для файлов -->
     <input type="file" id="fileInput" style="display:none" multiple>
     <input type="file" id="photoInput" style="display:none" accept="image/*" multiple>
     <input type="file" id="videoInput" style="display:none" accept="video/*" multiple>
     <input type="file" id="cameraInput" style="display:none" accept="image/*,video/*" capture="environment">
 
-    <!-- Скрипты -->
+    <!-- EmailJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
     <script src="assets/js/utils.js"></script>
     <script src="assets/js/translate.js"></script>
     <script src="assets/js/notifications.js"></script>
@@ -201,4 +186,4 @@
     <script src="assets/js/chat.js"></script>
     <script src="assets/js/main.js"></script>
 </body>
-                </html>
+</html>

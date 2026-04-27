@@ -8,8 +8,8 @@ services:
       - key: BOT_TOKEN
         value: 8719936079:AAHSPOedTSs18Qo6YgdC_wZAaR3D7JX0x0Y
       - key: BOT_USERNAME
-        value: worldchatverificationbot
+        value: WorldChatVerificationBot
       - key: ADMIN_PASS
         value: admin2011
       - key: VERIFY_URL
-        value: https://hambot-six.vercel.app
+        value: https://worldchat-kappa.vercel.app

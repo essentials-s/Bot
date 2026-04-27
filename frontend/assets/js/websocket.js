@@ -15,8 +15,8 @@ function getServerUrl() {
     const railwayUrl = 'world-chat-0twp.onrender.com';
     
     return {
-        ws: `wss://${railwayUrl}`,
-        api: `https://${railwayUrl}`
+        ws: `wss://` + railwayUrl,
+        api: `https://` + railwayUrl
     };
 }
 

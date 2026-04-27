@@ -120,63 +120,81 @@
         usernameInput.addEventListener('input', checkUsernameDebounced);
 
         // Отправка кода на email
-        sendCodeBtn.addEventListener('click', function() {
-            var email = emailInput.value.trim();
-            if (!email || !email.includes('@') || !email.includes('.')) {
-                emailStatus.textContent = 'Enter valid email';
-                emailStatus.style.color = 'var(--danger)';
-                showToast('Please enter a valid email', 'error');
-                return;
-            }
+        // В функции initRegistration(), замени sendCodeBtn.addEventListener:
 
-            sendCodeBtn.disabled = true;
-            sendCodeBtn.textContent = 'Sending...';
-            sendCodeBtn.style.opacity = '0.7';
-            
-            // Генерируем 6-значный код
-            regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-            regState.email = email;
+sendCodeBtn.addEventListener('click', function() {
+    var email = emailInput.value.trim();
+    if (!email || !email.includes('@') || !email.includes('.')) {
+        emailStatus.textContent = 'Enter valid email';
+        emailStatus.style.color = 'var(--danger)';
+        showSendNotification('error', 'Invalid Email', 'Please enter a valid email address');
+        return;
+    }
 
-            // Сохраняем код на сервере
-            fetch(API_URL + '/api/send-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email, code: regState.generatedCode })
-            }).catch(function() {});
+    sendCodeBtn.disabled = true;
+    sendCodeBtn.classList.add('sending');
+    sendCodeBtn.innerHTML = '<span class="spinner"></span> Sending...';
+    
+    regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+    regState.email = email;
 
-            // Отправляем через EmailJS
-            var templateParams = {
-                email: email,
-                to_name: nameInput.value || 'User',
-                code: regState.generatedCode,
-                from_name: 'World Chat',
-                subject: 'World Chat - Verification Code'
-            };
+    fetch(API_URL + '/api/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, code: regState.generatedCode })
+    }).catch(function() {});
 
-            emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, templateParams)
-                .then(function() {
-                    emailStatus.textContent = 'Code sent to ' + email;
-                    emailStatus.style.color = 'var(--success)';
-                    regState.codeSent = true;
-                    codeGroup.style.display = 'block';
-                    codeInput.focus();
-                    sendCodeBtn.textContent = 'Resend';
-                    sendCodeBtn.disabled = false;
-                    sendCodeBtn.style.opacity = '1';
-                    updateRegButton();
-                    showToast('Verification code sent', 'success');
-                })
-                .catch(function(error) {
-                    console.error('EmailJS error:', error);
-                    emailStatus.textContent = 'Failed to send. Try again.';
-                    emailStatus.style.color = 'var(--danger)';
-                    sendCodeBtn.textContent = 'Send Code';
-                    sendCodeBtn.disabled = false;
-                    sendCodeBtn.style.opacity = '1';
-                    regState.codeSent = false;
-                    showToast('Failed to send code', 'error');
-                });
+    var templateParams = {
+        email: email,
+        to_name: nameInput.value || 'User',
+        code: regState.generatedCode,
+        from_name: 'World Chat',
+        subject: 'World Chat - Verification Code'
+    };
+
+    emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, templateParams)
+        .then(function() {
+            emailStatus.textContent = 'Code sent to ' + email;
+            emailStatus.style.color = 'var(--success)';
+            regState.codeSent = true;
+            codeGroup.style.display = 'block';
+            codeInput.focus();
+            sendCodeBtn.innerHTML = 'Resend';
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.classList.remove('sending');
+            updateRegButton();
+            showSendNotification('success', 'Code Sent!', 'Check your email: ' + email);
+        })
+        .catch(function(error) {
+    emailStatus.textContent = 'Error: ' + (error.message || error.status || 'Unknown');
+    emailStatus.style.color = 'var(--danger)';
+            emailStatus.textContent = 'Failed to send. Try again.';
+            emailStatus.style.color = 'var(--danger)';
+            sendCodeBtn.innerHTML = 'Send Code';
+            sendCodeBtn.disabled = false;
+            sendCodeBtn.classList.remove('sending');
+            regState.codeSent = false;
+            showSendNotification('error', 'Failed', 'Could not send code. Try again.');
         });
+});
+
+// Добавь функцию показа уведомления:
+function showSendNotification(type, title, message) {
+    // Убираем старое
+    var old = document.querySelector('.send-notification');
+    if (old) old.remove();
+    
+    var notif = document.createElement('div');
+    notif.className = 'send-notification ' + type;
+    notif.innerHTML = '<div class="icon">' + (type === 'success' ? '&#10003;' : '&#10007;') + '</div><div class="text"><strong>' + title + '</strong><br><span style="font-size:12px;color:var(--text-secondary)">' + message + '</span></div>';
+    document.body.appendChild(notif);
+    
+    setTimeout(function() {
+        notif.style.opacity = '0';
+        notif.style.transition = 'opacity 0.3s';
+        setTimeout(function() { notif.remove(); }, 300);
+    }, 2500);
+}
 
         // Проверка кода
         verifyCodeBtn.addEventListener('click', function() {
@@ -314,6 +332,62 @@
     window.uploadAvatar = uploadAvatar;
     window.exportHistory = exportHistory;
     window.openProblemReport = openProblemReport;
+    window.changeNamePrompt = function() {
+    var newName = prompt('Enter new name:', currentUser ? currentUser.name : '');
+    if (newName && newName.trim()) {
+        if (currentUser) {
+            currentUser.name = newName.trim();
+            saveUserToStorage(currentUser);
+            updateProfile(newName.trim());
+            showToast('Name changed to ' + newName.trim(), 'success');
+        }
+    }
+};
 
+    window.uploadAvatar = function() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                if (currentUser) {
+                    currentUser.avatar = ev.target.result;
+                    saveUserToStorage(currentUser);
+                    updateProfile(currentUser.name, ev.target.result);
+                    showToast('Avatar updated', 'success');
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    input.click();
+};
+
+    window.exportHistory = function(format) {
+    fetch(API_URL + '/api/export/' + (format || 'json'))
+        .then(function(r) { return r.blob(); })
+        .then(function(blob) {
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'chat_history.' + (format || 'json');
+            a.click();
+            showToast('History exported', 'success');
+        })
+        .catch(function() {
+            showToast('Export failed', 'error');
+        });
+};
+
+    window.openProblemReport = function() {
+    var reason = prompt('Describe the problem:');
+    if (reason && reason.trim()) {
+        sendToServer({ type: 'report', reason: reason.trim() });
+        showToast('Report sent', 'success');
+    }
+};
     document.addEventListener('DOMContentLoaded', init);
 })();

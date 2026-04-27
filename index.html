@@ -5,8 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0a0e17">
     <title>World Chat</title>
-    <link rel="stylesheet" href="assets/css/chat.css">
-    <link rel="stylesheet" href="assets/css/themes.css">
+    <link rel="stylesheet" href="frontend/assets/css/chat.css">
+    <link rel="stylesheet" href="frontend/assets/css/themes.css">
+    <style>
+        /* Синяя кнопка Send Code */
+        #sendCodeBtn {
+            background: #3b82f6 !important;
+            color: #fff !important;
+            border: none !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+        }
+        #sendCodeBtn:hover {
+            background: #2563eb !important;
+        }
+        #sendCodeBtn:disabled {
+            opacity: 0.6 !important;
+            cursor: not-allowed !important;
+        }
+    </style>
 </head>
 <body>
     <div id="app">
@@ -25,21 +42,19 @@
                     <span id="usernameStatus"></span>
                 </div>
                 
-                <!-- Email верификация -->
                 <div class="input-group" id="emailGroup">
                     <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Email verification (required)</label>
                     <div style="display:flex;gap:6px">
                         <input type="email" id="regEmail" placeholder="your@email.com" style="flex:1">
-                        <button id="sendCodeBtn" class="btn-secondary" style="width:auto;white-space:nowrap;padding:8px 14px">Send Code</button>
+                        <button id="sendCodeBtn" style="width:auto;white-space:nowrap;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px">Send Code</button>
                     </div>
                     <span id="emailStatus" style="font-size:11px;display:block;margin-top:4px"></span>
                 </div>
                 
-                <!-- Поле для кода -->
                 <div class="input-group" id="codeGroup" style="display:none">
                     <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">Verification code</label>
                     <div style="display:flex;gap:6px">
-                        <input type="text" id="regCode" placeholder="Enter 6-digit code" maxlength="6" autocomplete="off" style="flex:1;text-align:center;letter-spacing:4px;font-size:18px">
+                        <input type="text" id="regCode" placeholder="000000" maxlength="6" autocomplete="off" style="flex:1;text-align:center;letter-spacing:6px;font-size:20px;font-weight:700">
                         <button id="verifyCodeBtn" class="btn-primary" style="width:auto;white-space:nowrap;padding:8px 14px">Verify</button>
                     </div>
                     <span id="codeStatus" style="font-size:11px;display:block;margin-top:4px"></span>
@@ -49,7 +64,7 @@
             </div>
         </div>
 
-        <!-- Основной чат -->
+        <!-- Чат -->
         <div id="chatContainer" class="chat-container" style="display:none">
             <div class="chat-header">
                 <span class="icon">&#127760;</span>
@@ -95,7 +110,7 @@
                 <button id="plusBtn" class="icon-btn" title="Attach">+</button>
                 <div class="input-box">
                     <div id="mediaPreview" class="media-preview" style="display:none"></div>
-                    <textarea id="msgInput" placeholder="Message..." rows="1" maxlength="500" disabled></textarea>
+                    <textarea id="msgInput" placeholder="Verify email to chat..." rows="1" maxlength="500" disabled></textarea>
                 </div>
                 <button id="sendBtn" class="send-btn" disabled>
                     <span>&#10132;</span>
@@ -137,23 +152,19 @@
         <div id="linkModal" class="overlay" style="display:none">
             <div class="modal">
                 <h3>External Link</h3>
-                <p>Are you sure you want to open this link?</p>
+                <p>Are you sure?</p>
                 <p id="linkUrl" class="link-text"></p>
-                <div style="display:flex;gap:8px">
-                    <button id="openLink" class="btn-primary">Open</button>
-                    <button id="cancelLink" class="btn-secondary">Cancel</button>
-                </div>
+                <button id="openLink" class="btn-primary">Open</button>
+                <button id="cancelLink" class="btn-secondary">Cancel</button>
             </div>
         </div>
 
         <div id="deleteModal" class="overlay" style="display:none">
             <div class="modal">
-                <h3>Delete Messages</h3>
+                <h3>Delete</h3>
                 <p id="deleteCount"></p>
-                <div style="display:flex;gap:8px">
-                    <button id="confirmDelete" class="btn-danger">Delete</button>
-                    <button id="cancelDelete" class="btn-secondary">Cancel</button>
-                </div>
+                <button id="confirmDelete" class="btn-danger">Delete</button>
+                <button id="cancelDelete" class="btn-secondary">Cancel</button>
             </div>
         </div>
 
@@ -167,23 +178,21 @@
     <input type="file" id="videoInput" style="display:none" accept="video/*" multiple>
     <input type="file" id="cameraInput" style="display:none" accept="image/*,video/*" capture="environment">
 
-    <!-- EmailJS -->
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
-
-    <script src="assets/js/utils.js"></script>
-    <script src="assets/js/translate.js"></script>
-    <script src="assets/js/notifications.js"></script>
-    <script src="assets/js/websocket.js"></script>
-    <script src="assets/js/markdown.js"></script>
-    <script src="assets/js/media.js"></script>
-    <script src="assets/js/voice.js"></script>
-    <script src="assets/js/polls.js"></script>
-    <script src="assets/js/contextMenu.js"></script>
-    <script src="assets/js/profile.js"></script>
-    <script src="assets/js/search.js"></script>
-    <script src="assets/js/settings.js"></script>
-    <script src="assets/js/reports.js"></script>
-    <script src="assets/js/chat.js"></script>
-    <script src="assets/js/main.js"></script>
+    <script src="frontend/assets/js/utils.js"></script>
+    <script src="frontend/assets/js/translate.js"></script>
+    <script src="frontend/assets/js/notifications.js"></script>
+    <script src="frontend/assets/js/websocket.js"></script>
+    <script src="frontend/assets/js/markdown.js"></script>
+    <script src="frontend/assets/js/media.js"></script>
+    <script src="frontend/assets/js/voice.js"></script>
+    <script src="frontend/assets/js/polls.js"></script>
+    <script src="frontend/assets/js/contextMenu.js"></script>
+    <script src="frontend/assets/js/profile.js"></script>
+    <script src="frontend/assets/js/search.js"></script>
+    <script src="frontend/assets/js/settings.js"></script>
+    <script src="frontend/assets/js/reports.js"></script>
+    <script src="frontend/assets/js/chat.js"></script>
+    <script src="frontend/assets/js/main.js"></script>
 </body>
 </html>

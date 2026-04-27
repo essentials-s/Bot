@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Всемирный чат</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+            background:#0a0e17;
+            height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            color:#fff;
+        }
+        .app{
+            width:100%;
+            max-width:550px;
+            height:100vh;
+            position:relative;
+            overflow:hidden;
+            background:#111827;
+        }
+        @media(min-width:560px){.app{height:95vh;border-radius:16px;border:1px solid #1f2937}}
+        .page{
+            position:absolute;
+            inset:0;
+            display:flex;
+            flex-direction:column;
+            transition:.3s;
+        }
+        .page.chat-page{transform:translateX(0);z-index:1}
+        .page.admin-page{transform:translateX(100%);z-index:2}
+        .page.admin-page.show{transform:translateX(0)}
+        .header{
+            padding:12px 16px;
+            background:#1a2332;
+            border-bottom:1px solid #1f2937;
+            display:flex;
+            align-items:center;
+            gap:10px;
+            flex-shrink:0;
+        }
+        .header .icon{font-size:22px}
+        .header-info{flex:1}
+        .header-info h3{font-size:14px;font-weight:600}
+        .header-info span{font-size:10px;color:#9ca3af}
+        .badge{
+            background:#1f2937;
+            padding:4px 10px;
+            border-radius:10px;
+            font-size:11px;
+            color:#10b981;
+        }
+        .messages{
+            flex:1;
+            overflow-y:auto;
+            padding:12px;
+            display:flex;
+            flex-direction:column;
+            gap:4px;
+        }
+        .msg{margin-bottom:6px;position:relative}
+        .msg .m-name{
+            font-size:10px;
+            font-weight:600;
+            padding-left:2px;
+            margin-bottom:1px;
+        }
+        .msg-row{display:flex;align-items:flex-end;gap:4px}
+        .bubble{
+            display:inline-block;
+            max-width:85%;
+            padding:7px 11px;
+            border-radius:12px;
+            font-size:13px;
+            line-height:1.4;
+            word-break:break-word;
+            background:#1f2937;
+            position:relative;
+        }
+        .bubble .reply-block{
+            font-size:10px;
+            padding:3px 6px;
+            margin-bottom:4px;
+            border-left:2px solid #3b82f6;
+            background:rgba(0,0,0,0.3);
+            border-radius:3px;
+            color:#9ca3af;
+        }
+        .bubble .reply-block b{color:#60a5fa}
+        .bubble .t{font-size:9px;opacity:0.3;text-align:right;margin-top:2px}
+        .sys{text-align:center;font-size:10px;color:#6b7280;padding:6px 0}
+        
+        .reply-icon{
+            display:none;
+            position:absolute;
+            right:-8px;
+            top:50%;
+            transform:translateY(-50%);
+            width:26px;
+            height:26px;
+            border-radius:50%;
+            background:#374151;
+            border:1px solid #4b5563;
+            cursor:pointer;
+            font-size:12px;
+            color:#9ca3af;
+            align-items:center;
+            justify-content:center;
+            z-index:5;
+            transition:.15s;
+        }
+        .reply-icon:hover{background:#4b5563;color:#fff}
+        .msg:hover .reply-icon{display:flex}
+        
+        .reply-preview{
+            background:#1a2332;
+            border-left:3px solid #3b82f6;
+            padding:6px 10px;
+            margin:0 14px 6px;
+            border-radius:0 8px 8px 0;
+            font-size:11px;
+            color:#9ca3af;
+            display:none;
+            align-items:center;
+            gap:8px;
+        }
+        .reply-preview.show{display:flex}
+        .reply-preview .rp-info{flex:1;min-width:0}
+        .reply-preview .rp-name{font-weight:600;color:#60a5fa;font-size:10px}
+        .reply-preview .rp-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .reply-preview .rp-close{
+            background:none;
+            border:none;
+            color:#6b7280;
+            cursor:pointer;
+            font-size:16px;
+            padding:0 2px;
+            flex-shrink:0;
+        }
+        .reply-preview .rp-close:hover{color:#ef4444}
+        
+        .input-row{
+            padding:10px 14px;
+            border-top:1px solid #1f2937;
+            display:flex;
+            gap:6px;
+            align-items:flex-end;
+            flex-shrink:0;
+        }
+        .input-box{
+            flex:1;
+            background:#1f2937;
+            border-radius:20px;
+            padding:2px 4px 2px 12px;
+            border:1px solid #2d3748;
+            display:flex;
+            align-items:flex-end;
+        }
+        .input-box:focus-within{border-color:#3b82f6}
+        .input-box input{
+            flex:1;
+            background:transparent;
+            border:none;
+            color:#fff;
+            font-size:13px;
+            padding:7px 0;
+            outline:none;
+            font-family:inherit;
+        }
+        .input-box input::placeholder{color:#6b7280}
+        .btn{
+            width:38px;
+            height:38px;
+            border-radius:50%;
+            background:#3b82f6;
+            border:none;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:18px;
+            flex-shrink:0;
+            color:#fff;
+        }
+        .btn:disabled{opacity:0.3}
+        .btn:active{transform:scale(0.9)}
+
+        /* Регистрация */
+        .reg-overlay{
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,0.8);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:100;
+        }
+        .reg-box{
+            background:#1a2332;
+            border:1px solid #2d3748;
+            border-radius:16px;
+            padding:24px;
+            text-align:center;
+            width:90%;
+            max-width:320px;
+        }
+        .reg-box h2{font-size:18px;margin-bottom:6px}
+        .reg-box p{font-size:12px;color:#9ca3af;margin-bottom:16px}
+        .reg-box input{
+            width:100%;
+            background:#1f2937;
+            border:1px solid #374151;
+            color:#fff;
+            padding:10px 14px;
+            border-radius:10px;
+            font-size:14px;
+            outline:none;
+            text-align:center;
+        }
+        .reg-box input:focus{border-color:#3b82f6}
+        .reg-box button{
+            width:100%;
+            margin-top:12px;
+            background:#3b82f6;
+            border:none;
+            color:#fff;
+            padding:10px;
+            border-radius:10px;
+            font-size:14px;
+            cursor:pointer;
+            font-weight:600;
+        }
+        .reg-box button:hover{background:#2563eb}
+        .reg-box button:disabled{opacity:0.4}
+
+        /* Админка */
+        .admin-list{flex:1;overflow-y:auto;padding:10px}
+        .admin-item{
+            background:#1a2332;
+            border:1px solid #2d3748;
+            border-radius:10px;
+            padding:10px 12px;
+            margin-bottom:8px;
+        }
+        .admin-item .a-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:4px;
+        }
+        .admin-item .a-name{font-weight:600;font-size:12px}
+        .admin-item .a-time{font-size:9px;color:#6b7280}
+        .admin-item .a-text{font-size:13px;margin-bottom:6px;line-height:1.4}
+        .admin-item .a-reply{font-size:10px;color:#60a5fa;margin-bottom:4px;display:none}
+        .admin-item .a-reply.show{display:block}
+        .admin-item .reply-row{display:none;gap:6px;margin-top:6px;align-items:center}
+        .admin-item .reply-row.active{display:flex}
+        .admin-item .reply-row input{
+            flex:1;
+            background:#1f2937;
+            border:1px solid #374151;
+            color:#fff;
+            padding:7px 10px;
+            border-radius:8px;
+            font-size:12px;
+            outline:none;
+        }
+        .admin-item .reply-row input:focus{border-color:#3b82f6}
+        .admin-item .reply-row button{
+            background:#10b981;
+            border:none;
+            color:#fff;
+            padding:7px 12px;
+            border-radius:8px;
+            cursor:pointer;
+            font-size:12px;
+            white-space:nowrap;
+        }
+        .admin-item .reply-row button.cancel{background:#374151}
+        .admin-item .open-reply{
+            background:#2563eb;
+            border:none;
+            color:#fff;
+            padding:5px 12px;
+            border-radius:6px;
+            cursor:pointer;
+            font-size:11px;
+        }
+        .admin-item .open-reply:active{background:#1d4ed8}
+        
+        .back-btn{
+            display:block;
+            width:100%;
+            padding:10px;
+            background:#374151;
+            border:none;
+            color:#fff;
+            border-radius:8px;
+            cursor:pointer;
+            font-size:13px;
+            margin:8px 14px;
+            width:calc(100% - 28px);
+        }
+        .back-btn:hover{background:#4b5563}
+
+        .toast{
+            position:fixed;
+            top:16px;
+            left:50%;
+            transform:translateX(-50%) translateY(-120px);
+            background:#1f2937;
+            border:1px solid #374151;
+            padding:8px 16px;
+            border-radius:20px;
+            font-size:11px;
+            z-index:200;
+            transition:.3s;
+            pointer-events:none;
+        }
+        .toast.show{transform:translateX(-50%) translateY(0)}
+    </style>
+</head>
+<body>
+    <div class="app">
+        <!-- СТРАНИЦА ЧАТА -->
+        <div class="page chat-page" id="chatPage">
+            <div class="header">
+                <div class="icon">🌍</div>
+                <div class="header-info">
+                    <h3>Всемирный чат</h3>
+                    <span>Все сообщения видны всем</span>
+                </div>
+                <div class="badge" id="onlineBadge">● онлайн</div>
+            </div>
+            <div class="messages" id="chatMessages"></div>
+            <div class="reply-preview" id="replyPreview">
+                <div class="rp-info">
+                    <div class="rp-name" id="rpName"></div>
+                    <div class="rp-text" id="rpText"></div>
+                </div>
+                <button class="rp-close" onclick="cancelReply()">✕</button>
+            </div>
+            <div class="input-row">
+                <div class="input-box">
+                    <input id="msgInput" placeholder="Сообщение..." maxlength="500">
+                </div>
+                <button class="btn" id="sendBtn" disabled>➤</button>
+            </div>
+        </div>
+
+        <!-- СТРАНИЦА АДМИНА -->
+        <div class="page admin-page" id="adminPage">
+            <div class="header">
+                <div class="icon">🛡️</div>
+                <div class="header-info">
+                    <h3>Админ-панель</h3>
+                    <span>Управление сообщениями</span>
+                </div>
+                <div class="badge" id="adminOnline">● 0</div>
+            </div>
+            <div class="admin-list" id="adminList"></div>
+            <button class="back-btn" onclick="toggleAdmin()">← Вернуться в чат</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Регистрация -->
+    <div class="reg-overlay" id="regOverlay">
+        <div class="reg-box">
+            <h2>🌍 Всемирный чат</h2>
+            <p>Придумайте имя для чата</p>
+            <input type="text" id="regInput" placeholder="Ваше имя" maxlength="15" autocomplete="off">
+            <button id="regBtn" disabled>Войти в чат</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== ХРАНИЛИЩЕ =====
+        const BLOB_ID = '1352058235041792000';
+        const API = 'https://jsonblob.com/api/jsonBlob/' + BLOB_ID;
+        const ADMIN_PASS = 'admin2011';
+
+        let messages = [];
+        let userName = '';
+        let isAdmin = false;
+        let replyTo = null;
+        let activeReplyIndex = null;
+
+        // ===== DOM =====
+        const chatPage = document.getElementById('chatPage');
+        const adminPage = document.getElementById('adminPage');
+        const chatMessages = document.getElementById('chatMessages');
+        const adminList = document.getElementById('adminList');
+        const msgInput = document.getElementById('msgInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const onlineBadge = document.getElementById('onlineBadge');
+        const adminOnline = document.getElementById('adminOnline');
+        const toastEl = document.getElementById('toast');
+        const replyPreview = document.getElementById('replyPreview');
+        const rpName = document.getElementById('rpName');
+        const rpText = document.getElementById('rpText');
+        const regOverlay = document.getElementById('regOverlay');
+        const regInput = document.getElementById('regInput');
+        const regBtn = document.getElementById('regBtn');
+
+        // ===== РЕГИСТРАЦИЯ =====
+        userName = localStorage.getItem('chat_name');
+        if (userName) {
+            regOverlay.style.display = 'none';
+        } else {
+            regOverlay.style.display = 'flex';
+            regInput.focus();
+        }
+
+        regInput.addEventListener('input', () => {
+            regBtn.disabled = !regInput.value.trim();
+        });
+
+        regInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !regBtn.disabled) register();
+        });
+
+        regBtn.addEventListener('click', register);
+
+        function register() {
+            const name = regInput.value.trim();
+            if (!name) return;
+            userName = name;
+            localStorage.setItem('chat_name', userName);
+            regOverlay.style.display = 'none';
+            renderChat();
+            showToast('👋 Добро пожаловать, ' + userName + '!');
+        }
+
+        // ===== API =====
+        async function loadData() {
+            try {
+                const res = await fetch(API);
+                const data = await res.json();
+                messages = data.messages || [];
+                const online = data.online || 0;
+                onlineBadge.textContent = '● ' + online + ' онлайн';
+                adminOnline.textContent = '● ' + online;
+                return data;
+            } catch (e) {
+                return { messages: [], online: 0 };
+            }
+        }
+
+        async function saveData() {
+            try {
+                const res = await fetch(API);
+                const data = await res.json();
+                data.messages = messages;
+                await fetch(API, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } catch (e) {}
+        }
+
+        // ===== ЧАТ =====
+        function renderChat() {
+            const msgs = messages.filter(m => !m.deleted);
+            if (msgs.length === 0) {
+                chatMessages.innerHTML = '<div class="sys">💬 Пока нет сообщений</div>';
+                return;
+            }
+
+            chatMessages.innerHTML = '';
+            let lastAuthor = '';
+            let lastTime = 0;
+
+            msgs.forEach((msg, i) => {
+                if (msg.system) {
+                    chatMessages.innerHTML += `<div class="sys">${esc(msg.text)}</div>`;
+                    lastAuthor = '';
+                    return;
+                }
+
+                const showName = msg.name !== lastAuthor || (msg.time - lastTime) > 120000;
+
+                let replyHTML = '';
+                if (msg.replyTo) {
+                    const replied = msgs.find(m => m.id === msg.replyTo);
+                    if (replied) {
+                        replyHTML = `<div class="reply-block"><b>${esc(replied.name)}</b>: ${esc(replied.text).substring(0,40)}</div>`;
+                    }
+                }
+
+                const div = document.createElement('div');
+                div.className = 'msg';
+                div.innerHTML = `
+                    ${showName ? `<div class="m-name" style="color:${getColor(msg.name)}">${esc(msg.name)}</div>` : ''}
+                    <div class="msg-row">
+                        <div class="bubble">
+                            ${replyHTML}
+                            ${esc(msg.text)}
+                            <div class="t">${formatTime(msg.time)}</div>
+                        </div>
+                        <div class="reply-icon" data-id="${msg.id}" data-name="${esc(msg.name)}" data-text="${esc(msg.text).substring(0,50)}">↩</div>
+                    </div>
+                `;
+
+                chatMessages.appendChild(div);
+
+                lastAuthor = msg.name;
+                lastTime = msg.time;
+            });
+
+            // Добавляем обработчики для иконок "Ответить"
+            document.querySelectorAll('.reply-icon').forEach(icon => {
+                icon.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = parseInt(icon.dataset.id);
+                    const name = icon.dataset.name;
+                    const text = icon.dataset.text;
+                    setReply(id, name, text);
+                });
+            });
+
+            scrollToBottom(chatMessages);
+        }
+
+        function setReply(id, name, text) {
+            replyTo = id;
+            rpName.textContent = name;
+            rpText.textContent = text;
+            replyPreview.classList.add('show');
+            msgInput.focus();
+        }
+
+        function cancelReply() {
+            replyTo = null;
+            replyPreview.classList.remove('show');
+            rpName.textContent = '';
+            rpText.textContent = '';
+        }
+
+        async function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text || !userName) return;
+
+            // Проверка на команду /admin
+            if (text === '/admin') {
+                msgInput.value = '';
+                sendBtn.disabled = true;
+                cancelReply();
+                toggleAdmin();
+                return;
+            }
+
+            messages.push({
+                id: Date.now(),
+                name: userName,
+                text: text,
+                time: Date.now(),
+                replyTo: replyTo,
+                deleted: false
+            });
+
+            await saveData();
+            msgInput.value = '';
+            sendBtn.disabled = true;
+            cancelReply();
+        }
+
+        // ===== АДМИНКА =====
+        function renderAdmin() {
+            const visible = messages.filter(m => !m.deleted && !m.system);
+            if (visible.length === 0) {
+                adminList.innerHTML = '<div class="sys" style="padding:30px">📭 Нет сообщений</div>';
+                return;
+            }
+
+            adminList.innerHTML = visible.map(msg => {
+                const idx = messages.indexOf(msg);
+                const hasReply = msg.replyTo;
+                const replied = hasReply ? messages.find(m => m.id === msg.replyTo) : null;
+
+                return `
+                <div class="admin-item" id="adminMsg-${idx}">
+                    <div class="a-header">
+                        <span class="a-name" style="color:${getColor(msg.name)}">${esc(msg.name)}</span>
+                        <span class="a-time">${formatFull(msg.time)}</span>
+                    </div>
+                    <div class="a-text">${esc(msg.text)}</div>
+                    <div class="a-reply ${hasReply ? 'show' : ''}">
+                        ${replied ? '↩️ В ответ: ' + esc(replied.name) + ': "' + esc(replied.text).substring(0,40) + '"' : ''}
+                    </div>
+                    <button class="open-reply" onclick="openReplyBox(${idx})">↩️ Ответить</button>
+                    <div class="reply-row" id="replyRow-${idx}">
+                        <input type="text" id="replyInput-${idx}" placeholder="Ответ..." maxlength="500" onclick="event.stopPropagation()" onfocus="event.stopPropagation()">
+                        <button onclick="sendAdminReply(${idx})">Отпр</button>
+                        <button class="cancel" onclick="closeReplyBox(${idx})">✕</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            if (activeReplyIndex !== null) {
+                setTimeout(() => {
+                    const input = document.getElementById('replyInput-' + activeReplyIndex);
+                    const row = document.getElementById('replyRow-' + activeReplyIndex);
+                    if (input && row && row.classList.contains('active')) {
+                        input.focus();
+                    }
+                }, 100);
+            }
+        }
+
+        function openReplyBox(index) {
+            document.querySelectorAll('.reply-row.active').forEach(r => {
+                r.classList.remove('active');
+                const inp = r.querySelector('input');
+                if (inp) inp.value = '';
+            });
+            const row = document.getElementById('replyRow-' + index);
+            if (row) {
+                row.classList.add('active');
+                activeReplyIndex = index;
+                setTimeout(() => {
+                    const input = document.getElementById('replyInput-' + index);
+                    if (input) input.focus();
+                }, 50);
+            }
+        }
+
+        function closeReplyBox(index) {
+            const row = document.getElementById('replyRow-' + index);
+            if (row) {
+                row.classList.remove('active');
+                const input = document.getElementById('replyInput-' + index);
+                if (input) input.value = '';
+            }
+            activeReplyIndex = null;
+        }
+
+        async function sendAdminReply(index) {
+            const input = document.getElementById('replyInput-' + index);
+            if (!input) return;
+            const text = input.value.trim();
+            if (!text) return;
+
+            const originalMsg = messages[index];
+
+            messages.push({
+                id: Date.now(),
+                name: '🛡️ Админ',
+                text: text,
+                time: Date.now(),
+                replyTo: originalMsg.id,
+                deleted: false
+            });
+
+            await saveData();
+            closeReplyBox(index);
+            renderAdmin();
+            showToast('✅ Ответ отправлен');
+        }
+
+        // ===== ПЕРЕКЛЮЧЕНИЕ АДМИНКИ =====
+        function toggleAdmin() {
+            if (!isAdmin) {
+                const pass = prompt('🔐 Введите пароль админа:');
+                if (pass !== ADMIN_PASS) {
+                    if (pass !== null) showToast('❌ Неверный пароль');
+                    return;
+                }
+                isAdmin = true;
+                chatPage.style.transform = 'translateX(-100%)';
+                adminPage.classList.add('show');
+                renderAdmin();
+                showToast('🛡️ Админ-панель');
+            } else {
+                isAdmin = false;
+                chatPage.style.transform = 'translateX(0)';
+                adminPage.classList.remove('show');
+                activeReplyIndex = null;
+                renderChat();
+                showToast('💬 Чат');
+            }
+        }
+
+        // ===== УТИЛИТЫ =====
+        function scrollToBottom(el) {
+            requestAnimationFrame(() => {
+                el.scrollTop = el.scrollHeight;
+            });
+        }
+
+        function showToast(text) {
+            toastEl.textContent = text;
+            toastEl.classList.add('show');
+            clearTimeout(toastEl._t);
+            toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 2000);
+        }
+
+        function formatTime(ts) {
+            return new Date(ts).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function formatFull(ts) {
+            return new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+
+        function esc(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        function getColor(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            return `hsl(${Math.abs(hash) % 360},60%,65%)`;
+        }
+
+        // ===== СОБЫТИЯ =====
+        msgInput.addEventListener('input', () => {
+            sendBtn.disabled = !msgInput.value.trim();
+        });
+
+        msgInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (!sendBtn.disabled) sendMessage();
+            }
+            if (e.key === 'Escape') cancelReply();
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && activeReplyIndex !== null && isAdmin) {
+                const input = document.getElementById('replyInput-' + activeReplyIndex);
+                if (document.activeElement === input) {
+                    e.preventDefault();
+                    sendAdminReply(activeReplyIndex);
+                }
+            }
+        });
+
+        // ===== АВТООБНОВЛЕНИЕ =====
+        let lastCount = 0;
+        async function checkUpdates() {
+            await loadData();
+            const currentCount = messages.filter(m => !m.deleted && !m.system).length;
+
+            if (isAdmin) {
+                renderAdmin();
+            } else {
+                if (currentCount !== lastCount) {
+                    renderChat();
+                    if (currentCount > lastCount && lastCount > 0) {
+                        showToast('📩 Новое сообщение');
+                    }
+                    lastCount = currentCount;
+                }
+            }
+        }
+
+        // ===== СТАРТ =====
+        loadData().then(() => {
+            lastCount = messages.filter(m => !m.deleted && !m.system).length;
+            if (userName) renderChat();
+        });
+        setInterval(checkUpdates, 1500);
+    </script>
+</body>
+</html>

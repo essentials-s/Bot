@@ -12,7 +12,7 @@ function getServerUrl() {
     
     // Если на Vercel - используем Railway backend
     // Замени на свой Railway URL после деплоя
-    const railwayUrl = 'world-chat-backend-production.up.railway.app';
+    const railwayUrl = 'world-chat-0twp.onrender.com';
     
     return {
         ws: `wss://${railwayUrl}`,

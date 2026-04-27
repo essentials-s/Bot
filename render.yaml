@@ -6,9 +6,9 @@ services:
     startCommand: node server.js
     envVars:
       - key: BOT_TOKEN
-        value: 8672346594:AAE9Q-6m8E_CkrLtF8mQ3Jf7bWfMNmLcKSk
+        value: 8719936079:AAHSPOedTSs18Qo6YgdC_wZAaR3D7JX0x0Y
       - key: BOT_USERNAME
-        value: herrmeesagentbot
+        value: worldchatverificationbot
       - key: ADMIN_PASS
         value: admin2011
       - key: VERIFY_URL

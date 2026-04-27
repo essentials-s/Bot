@@ -5,12 +5,12 @@
 
     // Инициализация EmailJS
     (function() {
-        emailjs.init('eK_3lZjCFvgkwvuUZ'); // Замени на свой public key из EmailJS
+        emailjs.init('eK_3lZjCFvgkwvuUZ');
     })();
 
     const CONFIG = {
-        EMAILJS_SERVICE_ID: 'service_5sjv2tl', // Замени
-        EMAILJS_TEMPLATE_ID: 'template_4cs7weu', // Замени
+        EMAILJS_SERVICE_ID: 'service_5sjv2tl',
+        EMAILJS_TEMPLATE_ID: 'template_4cs7weu',
         SENDER_EMAIL: 'erdium@internet.ru',
         MAX_NAME_LENGTH: 20,
         MAX_USERNAME_LENGTH: 15,
@@ -77,6 +77,12 @@
         var codeStatus = document.getElementById('codeStatus');
         var codeGroup = document.getElementById('codeGroup');
 
+        // Стилизуем кнопку Send Code
+        sendCodeBtn.style.background = '#3b82f6';
+        sendCodeBtn.style.color = '#fff';
+        sendCodeBtn.style.border = 'none';
+        sendCodeBtn.style.fontWeight = '600';
+
         // Проверка username
         var checkUsernameDebounced = debounce(function() {
             var username = usernameInput.value.trim();
@@ -119,24 +125,32 @@
             if (!email || !email.includes('@') || !email.includes('.')) {
                 emailStatus.textContent = 'Enter valid email';
                 emailStatus.style.color = 'var(--danger)';
+                showToast('Please enter a valid email', 'error');
                 return;
             }
 
             sendCodeBtn.disabled = true;
             sendCodeBtn.textContent = 'Sending...';
-            emailStatus.textContent = 'Sending code...';
-            emailStatus.style.color = 'var(--text-secondary)';
-
+            sendCodeBtn.style.opacity = '0.7';
+            
             // Генерируем 6-значный код
             regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
             regState.email = email;
 
+            // Сохраняем код на сервере
+            fetch(API_URL + '/api/send-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, code: regState.generatedCode })
+            }).catch(function() {});
+
             // Отправляем через EmailJS
             var templateParams = {
-                to_email: email,
+                email: email,
                 to_name: nameInput.value || 'User',
                 code: regState.generatedCode,
-                from_name: 'World Chat'
+                from_name: 'World Chat',
+                subject: 'World Chat - Verification Code'
             };
 
             emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, templateParams)
@@ -148,7 +162,9 @@
                     codeInput.focus();
                     sendCodeBtn.textContent = 'Resend';
                     sendCodeBtn.disabled = false;
+                    sendCodeBtn.style.opacity = '1';
                     updateRegButton();
+                    showToast('Verification code sent', 'success');
                 })
                 .catch(function(error) {
                     console.error('EmailJS error:', error);
@@ -156,7 +172,9 @@
                     emailStatus.style.color = 'var(--danger)';
                     sendCodeBtn.textContent = 'Send Code';
                     sendCodeBtn.disabled = false;
+                    sendCodeBtn.style.opacity = '1';
                     regState.codeSent = false;
+                    showToast('Failed to send code', 'error');
                 });
         });
 
@@ -166,24 +184,54 @@
             if (code.length !== 6) {
                 codeStatus.textContent = 'Enter 6-digit code';
                 codeStatus.style.color = 'var(--danger)';
+                showToast('Enter 6-digit code', 'error');
                 return;
             }
 
-            if (code === regState.generatedCode) {
-                regState.emailVerified = true;
-                codeStatus.textContent = 'Verified!';
-                codeStatus.style.color = 'var(--success)';
-                codeInput.disabled = true;
-                verifyCodeBtn.disabled = true;
-                codeInput.style.borderColor = 'var(--success)';
-                updateRegButton();
-            } else {
-                codeStatus.textContent = 'Wrong code';
-                codeStatus.style.color = 'var(--danger)';
-                regState.emailVerified = false;
-                codeInput.value = '';
-                codeInput.focus();
-            }
+            // Проверяем через сервер
+            fetch(API_URL + '/api/verify-code', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: regState.email, code: code })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success || data.verified) {
+                    regState.emailVerified = true;
+                    codeStatus.textContent = 'Verified!';
+                    codeStatus.style.color = 'var(--success)';
+                    codeInput.disabled = true;
+                    verifyCodeBtn.disabled = true;
+                    codeInput.style.borderColor = 'var(--success)';
+                    updateRegButton();
+                    showToast('Email verified!', 'success');
+                } else {
+                    codeStatus.textContent = data.error || 'Wrong code';
+                    codeStatus.style.color = 'var(--danger)';
+                    regState.emailVerified = false;
+                    codeInput.value = '';
+                    codeInput.focus();
+                    showToast('Wrong code', 'error');
+                }
+            })
+            .catch(function() {
+                // Если сервер недоступен, проверяем локально
+                if (code === regState.generatedCode) {
+                    regState.emailVerified = true;
+                    codeStatus.textContent = 'Verified!';
+                    codeStatus.style.color = 'var(--success)';
+                    codeInput.disabled = true;
+                    verifyCodeBtn.disabled = true;
+                    updateRegButton();
+                    showToast('Email verified!', 'success');
+                } else {
+                    codeStatus.textContent = 'Wrong code';
+                    codeStatus.style.color = 'var(--danger)';
+                    codeInput.value = '';
+                    codeInput.focus();
+                    showToast('Wrong code', 'error');
+                }
+            });
         });
 
         // Ввод кода
@@ -233,10 +281,10 @@
             registerUser(user.name, user.username);
             showChat();
             enableMessageInput();
-            showSuccess('Welcome, ' + user.name + '!');
+            showToast('Welcome, ' + user.name + '!', 'success');
         });
 
-        // Enter на поле кода
+        // Enter на поле email
         emailInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') sendCodeBtn.click();
         });

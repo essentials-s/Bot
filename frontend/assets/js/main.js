@@ -3,23 +3,20 @@
 (function() {
     'use strict';
 
-    // Инициализация EmailJS
+    // EmailJS
     (function() {
-        emailjs.init('eK_3lZjCFvgkwvuUZ');
+        emailjs.init("eK_3lZjCFvgkwvuUZ");
     })();
 
-    const CONFIG = {
+    window.CONFIG = {
         EMAILJS_SERVICE_ID: 'service_5sjv2tl',
         EMAILJS_TEMPLATE_ID: 'template_4cs7weu',
-        SENDER_EMAIL: 'erdium@internet.ru',
         MAX_NAME_LENGTH: 20,
         MAX_USERNAME_LENGTH: 15,
+        MAX_EMAIL_REQUESTS: 2,
     };
 
-    window.CONFIG = CONFIG;
-
-    // Состояние регистрации
-    const regState = {
+    var regState = {
         name: '',
         username: '',
         email: '',
@@ -29,8 +26,28 @@
         codeSent: false,
     };
 
+    function getEmailRequestCount(email) {
+        var today = new Date().toDateString();
+        var key = 'email_requests_' + email;
+        var data = localStorage.getItem(key);
+        if (!data) return 0;
+        var parsed = JSON.parse(data);
+        if (parsed.date !== today) return 0;
+        return parsed.count || 0;
+    }
+
+    function incrementEmailRequestCount(email) {
+        var today = new Date().toDateString();
+        var key = 'email_requests_' + email;
+        localStorage.setItem(key, JSON.stringify({ date: today, count: getEmailRequestCount(email) + 1 }));
+    }
+
+    function canSendEmail(email) {
+        return getEmailRequestCount(email) < CONFIG.MAX_EMAIL_REQUESTS;
+    }
+
     function init() {
-        const savedUser = loadUserFromStorage();
+        var savedUser = loadUserFromStorage();
         
         if (savedUser && savedUser.name && savedUser.username && savedUser.emailVerified) {
             showChat();
@@ -43,7 +60,6 @@
         }
         
         initRegistration();
-        requestNotificationPermission();
     }
 
     function showRegistration() {
@@ -64,6 +80,35 @@
         }
     }
 
+    function enterChat() {
+        var nameInput = document.getElementById('regName');
+        var usernameInput = document.getElementById('regUsername');
+        var name = nameInput.value.trim();
+        var username = usernameInput.value.trim();
+
+        if (!name || !username) return;
+
+        currentUser = {
+            id: wsUserId || generateId(),
+            name: name,
+            username: username,
+            email: regState.email,
+            emailVerified: true,
+            avatar: '',
+            verified: true,
+            badge: ''
+        };
+
+        saveUserToStorage(currentUser);
+        registerUser(name, username);
+        showChat();
+        enableMessageInput();
+
+        if (typeof showToast === 'function') {
+            showToast('Welcome, ' + name + '!', 'success');
+        }
+    }
+
     function initRegistration() {
         var nameInput = document.getElementById('regName');
         var usernameInput = document.getElementById('regUsername');
@@ -77,24 +122,22 @@
         var codeStatus = document.getElementById('codeStatus');
         var codeGroup = document.getElementById('codeGroup');
 
-        // Стилизуем кнопку Send Code
-        sendCodeBtn.style.background = '#3b82f6';
-        sendCodeBtn.style.color = '#fff';
-        sendCodeBtn.style.border = 'none';
-        sendCodeBtn.style.fontWeight = '600';
+        codeInput.setAttribute('inputmode', 'numeric');
+        codeInput.setAttribute('pattern', '[0-9]*');
+
+        console.log('Registration init - all elements found');
 
         // Проверка username
         var checkUsernameDebounced = debounce(function() {
             var username = usernameInput.value.trim();
             if (username.length < 3) {
                 usernameStatus.textContent = '';
-                usernameStatus.className = '';
                 updateRegButton();
                 return;
             }
             if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-                usernameStatus.textContent = 'Invalid characters';
-                usernameStatus.className = 'error';
+                usernameStatus.textContent = 'Invalid';
+                usernameStatus.style.color = 'var(--danger)';
                 updateRegButton();
                 return;
             }
@@ -104,155 +147,119 @@
                 .then(function(data) {
                     if (data.available) {
                         usernameStatus.textContent = 'Available';
-                        usernameStatus.className = 'success';
+                        usernameStatus.style.color = 'var(--success)';
                     } else {
                         usernameStatus.textContent = 'Taken';
-                        usernameStatus.className = 'error';
+                        usernameStatus.style.color = 'var(--danger)';
                     }
                     updateRegButton();
                 })
                 .catch(function() {
-                    usernameStatus.textContent = '';
                     updateRegButton();
                 });
         }, 500);
 
         usernameInput.addEventListener('input', checkUsernameDebounced);
 
-        // Отправка кода на email
-        // В функции initRegistration(), замени sendCodeBtn.addEventListener:
-
-sendCodeBtn.addEventListener('click', function() {
-    var email = emailInput.value.trim();
-    if (!email || !email.includes('@') || !email.includes('.')) {
-        emailStatus.textContent = 'Enter valid email';
-        emailStatus.style.color = 'var(--danger)';
-        showSendNotification('error', 'Invalid Email', 'Please enter a valid email address');
-        return;
-    }
-
-    sendCodeBtn.disabled = true;
-    sendCodeBtn.classList.add('sending');
-    sendCodeBtn.innerHTML = '<span class="spinner"></span> Sending...';
-    
-    regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
-    regState.email = email;
-
-    fetch(API_URL + '/api/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, code: regState.generatedCode })
-    }).catch(function() {});
-
-    var templateParams = {
-        email: email,
-        to_name: nameInput.value || 'User',
-        code: regState.generatedCode,
-        from_name: 'World Chat',
-        subject: 'World Chat - Verification Code'
-    };
-
-    emailjs.send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID, templateParams)
-        .then(function() {
-            emailStatus.textContent = 'Code sent to ' + email;
-            emailStatus.style.color = 'var(--success)';
-            regState.codeSent = true;
-            codeGroup.style.display = 'block';
-            codeInput.focus();
-            sendCodeBtn.innerHTML = 'Resend';
-            sendCodeBtn.disabled = false;
-            sendCodeBtn.classList.remove('sending');
-            updateRegButton();
-            showSendNotification('success', 'Code Sent!', 'Check your email: ' + email);
-        })
-        .catch(function(error) {
-    emailStatus.textContent = 'Error: ' + (error.message || error.status || 'Unknown');
-    emailStatus.style.color = 'var(--danger)';
-            emailStatus.textContent = 'Failed to send. Try again.';
-            emailStatus.style.color = 'var(--danger)';
-            sendCodeBtn.innerHTML = 'Send Code';
-            sendCodeBtn.disabled = false;
-            sendCodeBtn.classList.remove('sending');
-            regState.codeSent = false;
-            showSendNotification('error', 'Failed', 'Could not send code. Try again.');
-        });
-});
-
-// Добавь функцию показа уведомления:
-function showSendNotification(type, title, message) {
-    // Убираем старое
-    var old = document.querySelector('.send-notification');
-    if (old) old.remove();
-    
-    var notif = document.createElement('div');
-    notif.className = 'send-notification ' + type;
-    notif.innerHTML = '<div class="icon">' + (type === 'success' ? '&#10003;' : '&#10007;') + '</div><div class="text"><strong>' + title + '</strong><br><span style="font-size:12px;color:var(--text-secondary)">' + message + '</span></div>';
-    document.body.appendChild(notif);
-    
-    setTimeout(function() {
-        notif.style.opacity = '0';
-        notif.style.transition = 'opacity 0.3s';
-        setTimeout(function() { notif.remove(); }, 300);
-    }, 2500);
-}
-
-        // Проверка кода
-        verifyCodeBtn.addEventListener('click', function() {
-            var code = codeInput.value.trim();
-            if (code.length !== 6) {
-                codeStatus.textContent = 'Enter 6-digit code';
-                codeStatus.style.color = 'var(--danger)';
-                showToast('Enter 6-digit code', 'error');
+        // SEND CODE
+        sendCodeBtn.addEventListener('click', function() {
+            console.log('=== SEND CODE CLICKED ===');
+            var email = emailInput.value.trim();
+            console.log('Email:', email);
+            
+            if (!email || !email.includes('@') || !email.includes('.')) {
+                emailStatus.textContent = 'Enter valid email';
+                emailStatus.style.color = 'var(--danger)';
+                console.log('Invalid email');
                 return;
             }
 
-            // Проверяем через сервер
-            fetch(API_URL + '/api/verify-code', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: regState.email, code: code })
+            if (!canSendEmail(email)) {
+                emailStatus.textContent = 'Limit reached (2 per day)';
+                emailStatus.style.color = 'var(--danger)';
+                if (typeof showToast === 'function') showToast('Limit reached', 'error');
+                console.log('Limit reached');
+                return;
+            }
+
+            sendCodeBtn.disabled = true;
+            sendCodeBtn.textContent = 'Sending...';
+            
+            regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+            regState.email = email;
+            console.log('Generated code:', regState.generatedCode);
+            console.log('Calling EmailJS...');
+
+            emailjs.send("service_5sjv2tl", "template_4cs7weu", {
+                to_name: (nameInput.value.trim() || "User"),
+                code: regState.generatedCode,
+                to_email: email
             })
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                if (data.success || data.verified) {
-                    regState.emailVerified = true;
-                    codeStatus.textContent = 'Verified!';
-                    codeStatus.style.color = 'var(--success)';
-                    codeInput.disabled = true;
-                    verifyCodeBtn.disabled = true;
-                    codeInput.style.borderColor = 'var(--success)';
-                    updateRegButton();
-                    showToast('Email verified!', 'success');
-                } else {
-                    codeStatus.textContent = data.error || 'Wrong code';
-                    codeStatus.style.color = 'var(--danger)';
-                    regState.emailVerified = false;
-                    codeInput.value = '';
-                    codeInput.focus();
-                    showToast('Wrong code', 'error');
+            .then(function(response) {
+                console.log('EmailJS SUCCESS:', response);
+                incrementEmailRequestCount(email);
+                emailStatus.textContent = 'Code sent to ' + email;
+                emailStatus.style.color = 'var(--success)';
+                regState.codeSent = true;
+                codeGroup.style.display = 'block';
+                codeInput.focus();
+                sendCodeBtn.textContent = 'Resend';
+                sendCodeBtn.disabled = false;
+                
+                var remaining = CONFIG.MAX_EMAIL_REQUESTS - getEmailRequestCount(email);
+                if (remaining <= 0) {
+                    sendCodeBtn.disabled = true;
+                    sendCodeBtn.textContent = 'Limit reached';
                 }
+                
+                updateRegButton();
+                if (typeof showToast === 'function') showToast('Code sent!', 'success');
             })
-            .catch(function() {
-                // Если сервер недоступен, проверяем локально
-                if (code === regState.generatedCode) {
-                    regState.emailVerified = true;
-                    codeStatus.textContent = 'Verified!';
-                    codeStatus.style.color = 'var(--success)';
-                    codeInput.disabled = true;
-                    verifyCodeBtn.disabled = true;
-                    updateRegButton();
-                    showToast('Email verified!', 'success');
-                } else {
-                    codeStatus.textContent = 'Wrong code';
-                    codeStatus.style.color = 'var(--danger)';
-                    codeInput.value = '';
-                    codeInput.focus();
-                    showToast('Wrong code', 'error');
+            .catch(function(error) {
+                console.error('EmailJS ERROR:', error);
+                emailStatus.textContent = 'Failed to send';
+                emailStatus.style.color = 'var(--danger)';
+                sendCodeBtn.textContent = 'Send Code';
+                sendCodeBtn.disabled = false;
+                
+                var remaining = CONFIG.MAX_EMAIL_REQUESTS - getEmailRequestCount(email);
+                if (remaining <= 0) {
+                    sendCodeBtn.disabled = true;
+                    sendCodeBtn.textContent = 'Limit reached';
                 }
+                
+                if (typeof showToast === 'function') showToast('Failed', 'error');
             });
         });
 
-        // Ввод кода
+        // VERIFY CODE
+        verifyCodeBtn.addEventListener('click', function() {
+            var code = codeInput.value.trim();
+            console.log('Verify code:', code, 'Expected:', regState.generatedCode);
+            
+            if (code === regState.generatedCode) {
+                console.log('Code correct!');
+                regState.emailVerified = true;
+                codeStatus.textContent = 'Verified!';
+                codeStatus.style.color = 'var(--success)';
+                codeInput.disabled = true;
+                verifyCodeBtn.disabled = true;
+                updateRegButton();
+                
+                if (typeof showToast === 'function') showToast('Verified!', 'success');
+                
+                setTimeout(function() {
+                    enterChat();
+                }, 500);
+            } else {
+                console.log('Wrong code');
+                codeStatus.textContent = 'Wrong code';
+                codeStatus.style.color = 'var(--danger)';
+                codeInput.value = '';
+                codeInput.focus();
+            }
+        });
+
         codeInput.addEventListener('input', function() {
             codeInput.value = codeInput.value.replace(/[^0-9]/g, '');
             if (codeInput.value.length === 6) {
@@ -260,18 +267,13 @@ function showSendNotification(type, title, message) {
             }
         });
 
-        // Обновление кнопки регистрации
         function updateRegButton() {
             var nameValid = nameInput.value.trim().length >= 1;
-            var usernameValid = usernameStatus.className === 'success';
+            var usernameStatusColor = usernameStatus.style.color;
+            var usernameValid = (usernameStatusColor === 'rgb(16, 185, 129)' || usernameStatus.textContent === 'Available');
             var emailValid = regState.emailVerified;
             
             regBtn.disabled = !(nameValid && usernameValid && emailValid);
-            
-            if (!nameValid) regBtn.textContent = 'Enter name';
-            else if (!usernameValid) regBtn.textContent = 'Username not available';
-            else if (!emailValid) regBtn.textContent = 'Verify email first';
-            else regBtn.textContent = 'Enter Chat';
         }
 
         nameInput.addEventListener('input', function() {
@@ -279,115 +281,77 @@ function showSendNotification(type, title, message) {
             updateRegButton();
         });
 
-        // Кнопка входа
+        // ENTER CHAT BUTTON
         regBtn.addEventListener('click', function() {
             if (regBtn.disabled) return;
-            
-            var user = {
-                id: wsUserId || generateId(),
-                name: nameInput.value.trim(),
-                username: usernameInput.value.trim(),
-                email: regState.email,
-                emailVerified: true,
-                avatar: '',
-                verified: true,
-                badge: ''
-            };
-
-            currentUser = user;
-            saveUserToStorage(user);
-            registerUser(user.name, user.username);
-            showChat();
-            enableMessageInput();
-            showToast('Welcome, ' + user.name + '!', 'success');
+            enterChat();
         });
 
-        // Enter на поле email
         emailInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') sendCodeBtn.click();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendCodeBtn.click();
+            }
         });
 
         updateRegButton();
+        console.log('Registration fully initialized');
     }
 
-    // Экспорт
-    window.showUserProfile = showUserProfile;
-    window.openMediaViewer = openMediaViewer;
-    window.closeMediaViewer = closeMediaViewer;
-    window.downloadMedia = downloadMedia;
-    window.toggleVoicePlay = toggleVoicePlay;
-    window.votePoll = votePoll;
-    window.cancelReply = cancelReply;
-    window.handleLinkClick = handleLinkClick;
-    window.openReportModal = openReportModal;
-    window.startEditMessage = startEditMessage;
-    window.cancelEdit = cancelEdit;
-    window.setReply = setReply;
-    window.scrollToMessage = scrollToMessage;
-    window.copyToClipboard = copyToClipboard;
-    window.sendReaction = sendReaction;
-    window.openSettings = openSettings;
-    window.closeSettings = closeSettings;
-    window.changeNamePrompt = changeNamePrompt;
-    window.uploadAvatar = uploadAvatar;
-    window.exportHistory = exportHistory;
-    window.openProblemReport = openProblemReport;
+    // Глобальные функции
     window.changeNamePrompt = function() {
-    var newName = prompt('Enter new name:', currentUser ? currentUser.name : '');
-    if (newName && newName.trim()) {
-        if (currentUser) {
-            currentUser.name = newName.trim();
+        var name = prompt('New name:', currentUser ? currentUser.name : '');
+        if (name && name.trim() && currentUser) {
+            currentUser.name = name.trim();
             saveUserToStorage(currentUser);
-            updateProfile(newName.trim());
-            showToast('Name changed to ' + newName.trim(), 'success');
-        }
-    }
-};
-
-    window.uploadAvatar = function() {
-    var input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = function(e) {
-        var file = e.target.files[0];
-        if (file) {
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-                if (currentUser) {
-                    currentUser.avatar = ev.target.result;
-                    saveUserToStorage(currentUser);
-                    updateProfile(currentUser.name, ev.target.result);
-                    showToast('Avatar updated', 'success');
-                }
-            };
-            reader.readAsDataURL(file);
+            updateProfile(name.trim());
+            showToast('Name changed', 'success');
         }
     };
-    input.click();
-};
+
+    window.uploadAvatar = function() {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    if (currentUser) {
+                        currentUser.avatar = ev.target.result;
+                        saveUserToStorage(currentUser);
+                        updateProfile(currentUser.name, ev.target.result);
+                        showToast('Avatar updated', 'success');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
+    };
 
     window.exportHistory = function(format) {
-    fetch(API_URL + '/api/export/' + (format || 'json'))
-        .then(function(r) { return r.blob(); })
-        .then(function(blob) {
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'chat_history.' + (format || 'json');
-            a.click();
-            showToast('History exported', 'success');
-        })
-        .catch(function() {
-            showToast('Export failed', 'error');
-        });
-};
+        fetch(API_URL + '/api/export/' + (format || 'json'))
+            .then(function(r) { return r.blob(); })
+            .then(function(blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'chat.' + (format || 'json');
+                a.click();
+                showToast('Exported', 'success');
+            });
+    };
 
     window.openProblemReport = function() {
-    var reason = prompt('Describe the problem:');
-    if (reason && reason.trim()) {
-        sendToServer({ type: 'report', reason: reason.trim() });
-        showToast('Report sent', 'success');
-    }
-};
+        var text = prompt('Describe the problem:');
+        if (text && text.trim()) {
+            sendToServer({ type: 'report', reason: text.trim() });
+            showToast('Report sent', 'success');
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', init);
+    console.log('main.js loaded');
 })();

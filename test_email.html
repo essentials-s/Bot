@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Email Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body>
+    <h2>Test EmailJS</h2>
+    <input type="email" id="testEmail" placeholder="your@email.com" value="твойemail@gmail.com">
+    <button onclick="sendTest()">Send Code</button>
+    <input type="text" id="testCode" placeholder="Code" maxlength="6">
+    <button onclick="verifyTest()">Verify</button>
+    <p id="testStatus"></p>
+
+    <script>
+        (function() {
+            emailjs.init("eK_3lZjCFvgkwvuUZ");
+        })();
+
+        var testCode = '';
+
+        function sendTest() {
+            var email = document.getElementById('testEmail').value;
+            testCode = Math.floor(100000 + Math.random() * 900000).toString();
+            
+            document.getElementById('testStatus').textContent = 'Sending...';
+            
+            emailjs.send("service_5sjv2tl", "template_4cs7weu", {
+                to_name: "Test User",
+                code: testCode,
+                to_email: email
+            })
+            .then(function(r) {
+                document.getElementById('testStatus').textContent = 'Sent! Code: ' + testCode;
+                console.log('Success:', r);
+            })
+            .catch(function(e) {
+                document.getElementById('testStatus').textContent = 'Error: ' + JSON.stringify(e);
+                console.error(e);
+            });
+        }
+
+        function verifyTest() {
+            var code = document.getElementById('testCode').value;
+            if (code === testCode) {
+                document.getElementById('testStatus').textContent = 'Correct!';
+            } else {
+                document.getElementById('testStatus').textContent = 'Wrong';
+            }
+        }
+    </script>
+</body>
+</html>

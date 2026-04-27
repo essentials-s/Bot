@@ -1,0 +1,88 @@
+/* frontend/assets/css/themes.css */
+
+/* --- Light Theme --- */
+[data-theme="light"] {
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f8f9fa;
+    --bg-input: #e8eaed;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --text-primary: #1a1a1a;
+    --text-secondary: #65676b;
+    --text-muted: #8a8d91;
+    --border: #dadde1;
+    --border-light: #ccd0d5;
+    --danger: #dc2626;
+    --success: #16a34a;
+    --warning: #d97706;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .chat-container {
+    background: var(--bg-primary);
+}
+
+[data-theme="light"] .message .msg-bubble {
+    background: var(--bg-secondary);
+    border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+[data-theme="light"] .input-area {
+    background: var(--bg-secondary);
+}
+
+[data-theme="light"] .modal {
+    background: var(--bg-secondary);
+}
+
+[data-theme="light"] .dropdown {
+    background: var(--bg-secondary);
+}
+
+[data-theme="light"] .toast {
+    background: var(--bg-tertiary);
+}
+
+/* --- Font Sizes --- */
+[data-font="small"] {
+    --font-msg: 12px;
+    --font-name: 11px;
+    --font-time: 9px;
+    --font-system: 10px;
+}
+
+[data-font="medium"] {
+    --font-msg: 13px;
+    --font-name: 12px;
+    --font-time: 10px;
+    --font-system: 11px;
+}
+
+[data-font="large"] {
+    --font-msg: 15px;
+    --font-name: 14px;
+    --font-time: 11px;
+    --font-system: 12px;
+}
+
+[data-font] .message .msg-bubble { font-size: var(--font-msg); }
+[data-font] .message .msg-name { font-size: var(--font-name); }
+[data-font] .message .msg-time { font-size: var(--font-time); }
+[data-font] .system-msg { font-size: var(--font-system); }
+
+/* --- Admin Customization --- */
+[data-bot-color] .message.admin .msg-bubble {
+    background: var(--bot-bg, #1e3a5f) !important;
+    border-color: var(--bot-border, #2563eb) !important;
+    color: var(--bot-text, #e2e8f0) !important;
+}
+
+[data-bot-tag] .message.admin .msg-username {
+    color: var(--bot-tag-color, #60a5fa) !important;
+}
+
+[data-bot-name] .message.admin .msg-name {
+    color: var(--bot-name-color, #93c5fd) !important;
+}

@@ -2,7 +2,6 @@
 
 const translations = {
     ru: {
-        // Регистрация
         regTitle: 'World Chat',
         regSubtitle: 'Выберите имя и username',
         regNamePlaceholder: 'Имя',
@@ -13,24 +12,18 @@ const translations = {
         regUsernameTaken: 'Username занят',
         regUsernameAvailable: 'Username доступен',
         
-        // Чат
         chatTitle: 'World Chat',
         chatSubtitle: 'Глобальный чат',
-        online: '● {count} онлайн',
+        online: '{count} онлайн',
         messagePlaceholder: 'Сообщение...',
         typing: '{name} печатает...',
         pinnedLabel: 'Закреплённое сообщение',
         welcomeMessage: 'Добро пожаловать в World Chat!',
         noMessages: 'Нет сообщений',
         
-        // Сообщения
         edited: 'изменено',
         deleted: 'Это сообщение удалено',
-        sent: '✓',
-        delivered: '✓✓',
-        read: '✓✓',
         
-        // Кнопки действий
         reply: 'Ответить',
         copy: 'Копировать',
         edit: 'Изменить',
@@ -41,13 +34,11 @@ const translations = {
         pin: 'Закрепить',
         unpin: 'Открепить',
         
-        // Меню
         menuSettings: 'Настройки',
         menuClearChat: 'Очистить чат',
         menuDeleteMode: 'Удалить сообщения',
         menuExport: 'Экспорт истории',
         
-        // Настройки
         settingsTitle: 'Настройки',
         settingsFontSize: 'Размер шрифта',
         settingsFontSmall: 'Маленький',
@@ -65,8 +56,8 @@ const translations = {
         settingsReportProblem: 'Сообщить о проблеме',
         settingsExport: 'Экспорт истории',
         settingsBack: 'Назад',
+        settingsNotifications: 'Уведомления',
         
-        // Подтверждения
         confirmClearChat: 'Вы уверены что хотите очистить чат?',
         confirmDelete: 'Вы уверены что хотите удалить {count} сообщений?',
         confirmLinkTitle: 'Внешняя ссылка',
@@ -75,18 +66,15 @@ const translations = {
         cancel: 'Отмена',
         confirm: 'Подтвердить',
         
-        // Жалоба
         reportTitle: 'Пожаловаться на сообщение',
         reportReason: 'Причина жалобы...',
         sendReport: 'Отправить жалобу',
         reportSubmitted: 'Жалоба отправлена',
         
-        // Проблема
         problemTitle: 'Сообщить о проблеме',
         problemDescription: 'Опишите проблему подробно',
         problemSent: 'Сообщение о проблеме отправлено',
         
-        // Профиль
         profileTitle: 'Профиль',
         profileName: 'Имя',
         profileUsername: 'Username',
@@ -94,7 +82,6 @@ const translations = {
         profileNotVerified: 'Не верифицирован',
         profileReport: 'Пожаловаться',
         
-        // Медиа
         photo: 'Фото',
         video: 'Видео',
         file: 'Файл',
@@ -102,7 +89,6 @@ const translations = {
         poll: 'Опрос',
         quiz: 'Викторина',
         
-        // Опрос
         pollQuestion: 'Вопрос',
         pollOptions: 'Варианты ответа',
         pollAddOption: 'Добавить вариант',
@@ -112,36 +98,34 @@ const translations = {
         quizCorrect: 'Правильный ответ',
         quizExplanation: 'Пояснение',
         
-        // Голосовые
         voiceRecord: 'Удерживайте для записи',
         voiceRelease: 'Отпустите для отправки',
         voiceCancel: 'Отмена',
         
-        // Верификация
         verifyTitle: 'Верификация',
         verifyText: 'Откройте бота @{bot} и отправьте код: {code}',
         verifyComplete: 'Верификация завершена',
         
-        // Поиск
         searchPlaceholder: 'Поиск по сообщениям...',
         searchNoResults: 'Ничего не найдено',
         
-        // Экспорт
         exportTitle: 'Экспорт истории',
         exportJson: 'JSON',
         exportTxt: 'TXT',
         
-        // Ошибки
         errorRegisterFirst: 'Сначала зарегистрируйтесь',
         errorRateLimit: 'Превышен лимит: 10 сообщений в минуту',
         errorUsernameTaken: 'Username занят',
         errorCannotEdit: 'Нельзя изменить это сообщение',
         errorAdminOnly: 'Только для админа',
         errorFileTooBig: 'Файл слишком большой (макс 10MB)',
+        
+        connectionOnline: 'Онлайн',
+        connectionReconnecting: 'Переподключение...',
+        userJoined: '{name} присоединился к чату',
     },
     
     en: {
-        // Registration
         regTitle: 'World Chat',
         regSubtitle: 'Choose your name and username',
         regNamePlaceholder: 'Name',
@@ -152,24 +136,18 @@ const translations = {
         regUsernameTaken: 'Username taken',
         regUsernameAvailable: 'Username available',
         
-        // Chat
         chatTitle: 'World Chat',
         chatSubtitle: 'Global conversation',
-        online: '● {count} online',
+        online: '{count} online',
         messagePlaceholder: 'Message...',
         typing: '{name} is typing...',
         pinnedLabel: 'Pinned message',
         welcomeMessage: 'Welcome to World Chat!',
         noMessages: 'No messages',
         
-        // Messages
         edited: 'edited',
         deleted: 'This message was deleted',
-        sent: '✓',
-        delivered: '✓✓',
-        read: '✓✓',
         
-        // Action buttons
         reply: 'Reply',
         copy: 'Copy',
         edit: 'Edit',
@@ -180,13 +158,11 @@ const translations = {
         pin: 'Pin',
         unpin: 'Unpin',
         
-        // Menu
         menuSettings: 'Settings',
         menuClearChat: 'Clear Chat',
         menuDeleteMode: 'Delete Messages',
         menuExport: 'Export History',
         
-        // Settings
         settingsTitle: 'Settings',
         settingsFontSize: 'Font Size',
         settingsFontSmall: 'Small',
@@ -204,8 +180,8 @@ const translations = {
         settingsReportProblem: 'Report a Problem',
         settingsExport: 'Export History',
         settingsBack: 'Back',
+        settingsNotifications: 'Notifications',
         
-        // Confirmations
         confirmClearChat: 'Are you sure you want to clear the chat?',
         confirmDelete: 'Are you sure you want to delete {count} messages?',
         confirmLinkTitle: 'External Link',
@@ -214,18 +190,15 @@ const translations = {
         cancel: 'Cancel',
         confirm: 'Confirm',
         
-        // Report
         reportTitle: 'Report Message',
         reportReason: 'Reason for report...',
         sendReport: 'Send Report',
         reportSubmitted: 'Report submitted',
         
-        // Problem
         problemTitle: 'Report a Problem',
         problemDescription: 'Describe the problem in detail',
         problemSent: 'Problem report sent',
         
-        // Profile
         profileTitle: 'Profile',
         profileName: 'Name',
         profileUsername: 'Username',
@@ -233,7 +206,6 @@ const translations = {
         profileNotVerified: 'Not verified',
         profileReport: 'Report',
         
-        // Media
         photo: 'Photo',
         video: 'Video',
         file: 'File',
@@ -241,7 +213,6 @@ const translations = {
         poll: 'Poll',
         quiz: 'Quiz',
         
-        // Poll
         pollQuestion: 'Question',
         pollOptions: 'Options',
         pollAddOption: 'Add option',
@@ -251,68 +222,115 @@ const translations = {
         quizCorrect: 'Correct answer',
         quizExplanation: 'Explanation',
         
-        // Voice
         voiceRecord: 'Hold to record',
         voiceRelease: 'Release to send',
         voiceCancel: 'Cancel',
         
-        // Verification
         verifyTitle: 'Verification',
         verifyText: 'Open bot @{bot} and send code: {code}',
         verifyComplete: 'Verification complete',
         
-        // Search
         searchPlaceholder: 'Search messages...',
         searchNoResults: 'No results found',
         
-        // Export
         exportTitle: 'Export History',
         exportJson: 'JSON',
         exportTxt: 'TXT',
         
-        // Errors
         errorRegisterFirst: 'Register first',
         errorRateLimit: 'Rate limit: 10 messages per minute',
         errorUsernameTaken: 'Username already taken',
         errorCannotEdit: 'Cannot edit this message',
         errorAdminOnly: 'Admin only',
         errorFileTooBig: 'File too large (max 10MB)',
+        
+        connectionOnline: 'Online',
+        connectionReconnecting: 'Reconnecting...',
+        userJoined: '{name} joined the chat',
     }
 };
 
-// Текущий язык
-let currentLang = localStorage.getItem('chat_language') || 'ru';
+let currentLang = 'ru';
 
-// Функция перевода
 function t(key, params = {}) {
-    const lang = translations[currentLang] || translations['ru'];
-    let text = lang[key] || translations['ru'][key] || key;
+    const langData = translations[currentLang] || translations['ru'];
+    let text = langData[key];
     
-    // Замена параметров
+    if (!text) {
+        text = translations['ru'][key] || key;
+    }
+    
     Object.keys(params).forEach(param => {
-        text = text.replace(`{${param}}`, params[param]);
+        text = text.replace('{' + param + '}', params[param]);
     });
     
     return text;
 }
 
-// Смена языка
 function setLanguage(lang) {
     if (translations[lang]) {
         currentLang = lang;
         localStorage.setItem('chat_language', lang);
+        updateAllTexts();
     }
 }
 
-// Обновление всех текстов на странице
 function updateAllTexts() {
+    // Обновляем data-i18n
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.dataset.i18n;
-        el.textContent = t(key);
+        const translated = t(key);
+        if (translated && translated !== key) {
+            el.textContent = translated;
+        }
     });
     
+    // Обновляем data-i18n-placeholder
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const key = el.dataset.i18nPlaceholder;
-        el.placeholder = t(key);
+        const translated = t(key);
+        if (translated && translated !== key) {
+            el.placeholder = translated;
+        }
     });
-      }
+    
+    // Обновляем приветственное сообщение
+    const welcomeMsg = document.getElementById('welcomeMsg');
+    if (welcomeMsg && chatState && chatState.messages && chatState.messages.length === 0) {
+        welcomeMsg.textContent = t('welcomeMessage');
+    }
+    
+    // Обновляем пункты меню
+    updateMenuTexts();
+}
+
+function updateMenuTexts() {
+    const menuItems = {
+        'settings': t('menuSettings'),
+        'clear-chat': t('menuClearChat'),
+        'delete-mode': t('menuDeleteMode'),
+        'export': t('menuExport'),
+    };
+    
+    document.querySelectorAll('#menuDropdown .dropdown-item').forEach(item => {
+        const action = item.dataset.action;
+        if (menuItems[action]) {
+            // Сохраняем иконку если есть
+            const icon = item.textContent.trim().charAt(0);
+            if (icon === '⚙' || icon === '🗑' || icon === '❌' || icon === '📥') {
+                item.textContent = icon + ' ' + menuItems[action];
+            } else {
+                item.textContent = menuItems[action];
+            }
+        }
+    });
+}
+
+// Инициализация
+document.addEventListener('DOMContentLoaded', () => {
+    const savedLang = localStorage.getItem('chat_language');
+    if (savedLang && translations[savedLang]) {
+        currentLang = savedLang;
+    }
+    updateAllTexts();
+});

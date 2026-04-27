@@ -1,70 +1,45 @@
 // frontend/assets/js/main.js
-
-// Главный файл - точка входа
 (function() {
     'use strict';
 
-    // ===== КОНФИГУРАЦИЯ =====
     const CONFIG = {
-        API_URL: window.location.hostname === 'localhost' 
-            ? 'http://localhost:3000' 
-            : 'https://world-chat-backend-production.up.railway.app',
-        WS_URL: window.location.hostname === 'localhost'
-            ? 'ws://localhost:3000'
-            : 'wss://world-chat-backend-production.up.railway.app',
-        BOT_USERNAME: 'herrmeesagentbot',
         ADMIN_PASS: 'admin2011',
-        MAX_MESSAGE_LENGTH: 500,
-        MAX_USERNAME_LENGTH: 15,
-        MAX_NAME_LENGTH: 20,
-        RATE_LIMIT: 10,
-        RATE_LIMIT_WINDOW: 60000,
     };
-
-    // Делаем конфиг глобально доступным
     window.CONFIG = CONFIG;
-    window.API_URL = CONFIG.API_URL;
-    window.WS_URL = CONFIG.WS_URL;
 
-    // ===== ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ =====
-    function init() {
-        console.log('World Chat initializing...');
-        
-        // Проверяем, зарегистрирован ли пользователь
+    // Ждём полной загрузки DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM loaded, initializing...');
+        initApp();
+    });
+
+    function initApp() {
+        // Загружаем пользователя
         const savedUser = loadUserFromStorage();
         
         if (savedUser && savedUser.name && savedUser.username) {
-            // Пользователь уже зарегистрирован - показываем чат
+            // Пользователь зарегистрирован - показываем чат
             showChat();
+            currentUser = savedUser;
             
-            // Восстанавливаем настройки
-            restoreSettings();
-            
-            // Отправляем регистрацию на сервер для восстановления сессии
-            setTimeout(() => {
-                registerUser(savedUser.name, savedUser.username);
-            }, 1000);
+            // Подключаемся и регистрируем
+            setTimeout(function() {
+                if (typeof registerUser === 'function') {
+                    registerUser(savedUser.name, savedUser.username);
+                }
+            }, 1500);
         } else {
             // Новый пользователь - показываем регистрацию
             showRegistration();
         }
         
-        // Инициализируем обработчики регистрации
-        initRegistration();
+        // Инициализируем регистрацию
+        setupRegistration();
         
-        // Запрашиваем разрешение на уведомления
-        requestNotificationPermission();
-        
-        // Обработчик видимости страницы
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        
-        // Предотвращаем zoom на мобильных
-        document.addEventListener('gesturestart', (e) => e.preventDefault());
-        
-        console.log('World Chat initialized');
+        // Загружаем настройки
+        loadSettings();
     }
 
-    // ===== РЕГИСТРАЦИЯ =====
     function showRegistration() {
         document.getElementById('registration').style.display = 'flex';
         document.getElementById('chatContainer').style.display = 'none';
@@ -73,139 +48,154 @@
     function showChat() {
         document.getElementById('registration').style.display = 'none';
         document.getElementById('chatContainer').style.display = 'flex';
-        
-        // Показываем приветствие
-        const welcomeMsg = document.getElementById('welcomeMsg');
-        if (welcomeMsg && chatState.messages.length === 0) {
-            welcomeMsg.textContent = t('welcomeMessage');
-        }
     }
 
-    function initRegistration() {
-        const nameInput = document.getElementById('regName');
-        const usernameInput = document.getElementById('regUsername');
-        const regBtn = document.getElementById('regBtn');
-        const usernameStatus = document.getElementById('usernameStatus');
-        const avatarInput = document.getElementById('regAvatar');
-        const skipAvatar = document.getElementById('skipAvatar');
-        const avatarGroup = document.getElementById('avatarGroup');
+    function loadSettings() {
+        const theme = localStorage.getItem('chat_theme') || 'dark';
+        const fontSize = localStorage.getItem('chat_fontSize') || 'medium';
+        const language = localStorage.getItem('chat_language') || 'ru';
+        
+        if (typeof applyTheme === 'function') applyTheme(theme);
+        if (typeof applyFontSize === 'function') applyFontSize(fontSize);
+        if (typeof setLanguage === 'function') setLanguage(language);
+    }
 
-        // Placeholder'ы
-        nameInput.placeholder = t('regNamePlaceholder');
-        usernameInput.placeholder = t('regUsernamePlaceholder');
+    function setupRegistration() {
+        var nameInput = document.getElementById('regName');
+        var usernameInput = document.getElementById('regUsername');
+        var regBtn = document.getElementById('regBtn');
+        var usernameStatus = document.getElementById('usernameStatus');
+        var avatarGroup = document.getElementById('avatarGroup');
+        var regAvatarBtn = document.getElementById('regAvatarBtn');
+        var regAvatar = document.getElementById('regAvatar');
+        var skipAvatar = document.getElementById('skipAvatar');
+        var avatarPreviewReg = document.getElementById('avatarPreviewReg');
+        var avatarImgReg = document.getElementById('avatarImgReg');
 
-        // Валидация имени
-        function validateName() {
-            const name = nameInput.value.trim();
-            return name.length >= 1 && name.length <= CONFIG.MAX_NAME_LENGTH;
+        if (!nameInput || !usernameInput || !regBtn) {
+            console.error('Registration elements not found!');
+            return;
         }
 
-        // Валидация username
-        function validateUsername() {
-            const username = usernameInput.value.trim();
-            if (username.length < 3) return false;
-            if (username.length > CONFIG.MAX_USERNAME_LENGTH) return false;
-            if (!/^[a-zA-Z0-9_]+$/.test(username)) return false;
-            return true;
+        var avatarData = null;
+        var usernameOk = false;
+
+        // Аватар
+        if (regAvatarBtn) {
+            regAvatarBtn.addEventListener('click', function() {
+                if (regAvatar) regAvatar.click();
+            });
+        }
+        
+        if (regAvatar) {
+            regAvatar.addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('File too large');
+                        return;
+                    }
+                    var reader = new FileReader();
+                    reader.onload = function(ev) {
+                        avatarData = ev.target.result;
+                        if (avatarImgReg) {
+                            avatarImgReg.src = avatarData;
+                        }
+                        if (avatarPreviewReg) {
+                            avatarPreviewReg.style.display = 'block';
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
         }
 
-        // Проверка доступности username
-        const checkUsernameDebounced = debounce(() => {
-            const username = usernameInput.value.trim();
-            if (!validateUsername()) {
-                usernameStatus.textContent = '';
-                usernameStatus.className = '';
-                updateRegButton();
+        if (skipAvatar) {
+            skipAvatar.addEventListener('click', function() {
+                avatarData = null;
+                if (avatarPreviewReg) avatarPreviewReg.style.display = 'none';
+                doRegister();
+            });
+        }
+
+        // Проверка формы
+        function checkForm() {
+            var name = nameInput.value.trim();
+            var username = usernameInput.value.trim();
+            var nameValid = name.length >= 1 && name.length <= 20;
+            var usernameFormat = username.length >= 3 && username.length <= 15 && /^[a-zA-Z0-9_]+$/.test(username);
+            
+            if (nameValid && usernameFormat && avatarGroup) {
+                avatarGroup.style.display = 'block';
+            }
+            
+            // Кнопка активна только если всё ок и username проверен
+            regBtn.disabled = !(nameValid && usernameFormat && usernameOk);
+        }
+
+        nameInput.addEventListener('input', checkForm);
+        usernameInput.addEventListener('input', function() {
+            usernameOk = false;
+            checkForm();
+            checkUsername();
+        });
+
+        // Проверка username
+        function checkUsername() {
+            var username = usernameInput.value.trim();
+            if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+                if (usernameStatus) {
+                    usernameStatus.textContent = '';
+                    usernameStatus.className = '';
+                }
                 return;
             }
 
-            // Проверяем через сервер
-            fetch(CONFIG.API_URL + '/api/check-username/' + username)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.available) {
-                        usernameStatus.textContent = t('regUsernameAvailable');
-                        usernameStatus.className = 'success';
-                    } else {
-                        usernameStatus.textContent = t('regUsernameTaken');
-                        usernameStatus.className = 'error';
-                    }
-                    updateRegButton();
-                })
-                .catch(() => {
-                    usernameStatus.textContent = '';
-                    usernameStatus.className = '';
-                    updateRegButton();
-                });
-        }, 500);
-
-        // Обновление кнопки
-        function updateRegButton() {
-            const nameValid = validateName();
-            const usernameValid = validateUsername();
-            const usernameAvailable = usernameStatus.className === 'success' || usernameStatus.textContent === '';
+            var apiUrl = (window.API_URL || '') + '/api/check-username/' + encodeURIComponent(username);
             
-            regBtn.disabled = !(nameValid && usernameValid && usernameAvailable);
+            fetch(apiUrl)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.available) {
+                        usernameOk = true;
+                        if (usernameStatus) {
+                            usernameStatus.textContent = 'Username available';
+                            usernameStatus.className = 'success';
+                        }
+                    } else {
+                        usernameOk = false;
+                        if (usernameStatus) {
+                            usernameStatus.textContent = 'Username taken';
+                            usernameStatus.className = 'error';
+                        }
+                    }
+                    checkForm();
+                })
+                .catch(function() {
+                    // Если сервер недоступен - разрешаем
+                    usernameOk = true;
+                    checkForm();
+                });
         }
 
-        // Обработчики
-        nameInput.addEventListener('input', () => {
-            updateRegButton();
-            if (validateName() && validateUsername()) {
-                avatarGroup.style.display = 'block';
-            }
-        });
-
-        usernameInput.addEventListener('input', () => {
-            checkUsernameDebounced();
-        });
-
-        // Аватар
-        let avatarData = null;
-        avatarInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                if (file.size > 5 * 1024 * 1024) {
-                    showError('File too large (max 5MB)');
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    avatarData = ev.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-
-        skipAvatar.addEventListener('click', () => {
-            avatarData = null;
-            completeRegistration();
-        });
-
         // Кнопка регистрации
-        regBtn.addEventListener('click', () => {
-            if (validateName() && validateUsername()) {
-                completeRegistration();
-            }
-        });
-
-        // Enter
-        usernameInput.addEventListener('keydown', (e) => {
+        regBtn.addEventListener('click', doRegister);
+        
+        usernameInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !regBtn.disabled) {
-                completeRegistration();
+                doRegister();
             }
         });
 
-        // Завершение регистрации
-        function completeRegistration() {
-            const name = nameInput.value.trim();
-            const username = usernameInput.value.trim();
+        function doRegister() {
+            var name = nameInput.value.trim();
+            var username = usernameInput.value.trim();
 
             if (!name || !username) return;
 
-            // Сохраняем пользователя
+            // Сохраняем
             currentUser = {
-                id: wsUserId || generateId(),
+                id: 'u_' + Date.now(),
                 name: name,
                 username: username,
                 avatar: avatarData || '',
@@ -213,64 +203,37 @@
                 badge: '',
             };
 
-            saveUserToStorage(currentUser);
+            try {
+                localStorage.setItem('chat_user', JSON.stringify(currentUser));
+            } catch(e) {}
 
             // Отправляем на сервер
-            registerUser(name, username);
+            if (typeof registerUser === 'function') {
+                registerUser(name, username);
+            }
 
             // Показываем чат
             showChat();
-            
-            // Отправляем аватар если есть
-            if (avatarData) {
-                setTimeout(() => updateProfile(name, avatarData), 500);
+
+            // Аватар
+            if (avatarData && typeof updateProfile === 'function') {
+                setTimeout(function() {
+                    updateProfile(name, avatarData);
+                }, 500);
             }
 
-            showSuccess('Welcome, ' + name + '!');
+            if (typeof showToast === 'function') {
+                showToast('Welcome, ' + name + '!');
+            }
         }
     }
 
-    // ===== НАСТРОЙКИ =====
-    function restoreSettings() {
-        const theme = localStorage.getItem('chat_theme') || 'dark';
-        const fontSize = localStorage.getItem('chat_fontSize') || 'medium';
-        const language = localStorage.getItem('chat_language') || 'ru';
-
-        applyTheme(theme);
-        applyFontSize(fontSize);
-        setLanguage(language);
-    }
-
-    // ===== ОБРАБОТЧИК ВИДИМОСТИ =====
-    function handleVisibilityChange() {
-        if (document.visibilityState === 'visible') {
-            // Страница стала видимой - сбрасываем счетчик непрочитанных
-            chatState.unreadCount = 0;
-            updateScrollButton();
-            
-            // Обновляем заголовок
-            document.title = 'World Chat';
-        }
-    }
-
-    // ===== ОБРАБОТКА ОШИБОК =====
-    window.addEventListener('error', (e) => {
-        console.error('Global error:', e.error);
-    });
-
-    window.addEventListener('unhandledrejection', (e) => {
-        console.error('Unhandled promise rejection:', e.reason);
-    });
-
-    // ===== ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ =====
-    // Делаем функции доступными для onclick из HTML
+    // Глобальные ссылки
     window.showUserProfile = showUserProfile;
     window.openMediaViewer = openMediaViewer;
     window.closeMediaViewer = closeMediaViewer;
-    window.downloadMedia = downloadMedia;
     window.toggleVoicePlay = toggleVoicePlay;
     window.votePoll = votePoll;
-    window.toggleDeleteMode = toggleDeleteMode;
     window.cancelReply = cancelReply;
     window.handleLinkClick = handleLinkClick;
     window.showDeleteConfirmation = showDeleteConfirmation;
@@ -279,7 +242,6 @@
     window.cancelEdit = cancelEdit;
     window.setReply = setReply;
     window.scrollToMessage = scrollToMessage;
-    window.copyToClipboard = copyToClipboard;
     window.sendReaction = sendReaction;
     window.openSettings = openSettings;
     window.closeSettings = closeSettings;
@@ -288,9 +250,6 @@
     window.startVerification = startVerification;
     window.exportHistory = exportHistory;
     window.openProblemReport = openProblemReport;
-
-    // ===== ЗАПУСК =====
-    document.addEventListener('DOMContentLoaded', init);
 
     console.log('main.js loaded');
 })();

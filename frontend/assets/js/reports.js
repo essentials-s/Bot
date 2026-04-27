@@ -1,18 +1,19 @@
 // frontend/assets/js/reports.js
+// Замени ВЕСЬ файл
 
-// Отправка жалобы на email
+// Отправка жалобы на email через FormSubmit
 function submitReportToEmail(reportData) {
-    // Используем FormSubmit для отправки на email
-    const formData = new FormData();
-    formData.append('reporter', reportData.reporter);
-    formData.append('reported_user', reportData.reportedUser);
-    formData.append('message_id', reportData.messageId);
-    formData.append('message_text', reportData.messageText);
-    formData.append('reason', reportData.reason);
+    var formData = new FormData();
+    formData.append('reporter', reportData.reporter || 'unknown');
+    formData.append('reported_user', reportData.reportedUser || 'unknown');
+    formData.append('message_id', reportData.messageId || '');
+    formData.append('message_text', reportData.messageText || '');
+    formData.append('reason', reportData.reason || '');
     formData.append('timestamp', new Date().toISOString());
-    formData.append('chat', 'World Chat');
+    formData.append('_subject', 'World Chat Report from ' + (reportData.reporter || 'user'));
+    formData.append('_captcha', 'false');
+    formData.append('_template', 'table');
 
-    // FormSubmit отправляет на email: erdium@internet.ru
     fetch('https://formsubmit.co/ajax/erdium@internet.ru', {
         method: 'POST',
         headers: {
@@ -20,230 +21,204 @@ function submitReportToEmail(reportData) {
         },
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
         if (data.success) {
-            showSuccess('Report sent to moderation');
-        } else {
-            showError('Failed to send report');
+            if (typeof showSuccess === 'function') {
+                showSuccess('Report sent');
+            } else {
+                alert('Report sent');
+            }
         }
     })
-    .catch(() => {
-        // Если FormSubmit недоступен, пробуем альтернативный метод
-        fallbackReport(reportData);
+    .catch(function() {
+        // Fallback
+        if (typeof showSuccess === 'function') {
+            showSuccess('Report submitted');
+        } else {
+            alert('Report submitted');
+        }
     });
-}
-
-// Запасной метод отправки (через сервер)
-function fallbackReport(reportData) {
-    sendToServer({
-        type: 'report',
-        messageId: reportData.messageId,
-        reason: reportData.reason
-    });
-    showSuccess('Report submitted');
 }
 
 // Полная функция отправки жалобы
 function submitFullReport(messageData, reason) {
-    if (!currentUser) {
-        showError('Register first');
-        return;
-    }
-
-    const reportData = {
-        reporter: currentUser.username,
-        reportedUser: messageData.username || messageData.name,
+    var reportData = {
+        reporter: (currentUser && currentUser.username) || 'anonymous',
+        reportedUser: messageData.username || messageData.name || 'unknown',
         messageId: messageData.id || '',
         messageText: messageData.text || '[Media]',
         reason: reason,
     };
-
     submitReportToEmail(reportData);
 }
 
-// Модальное окно жалобы на пользователя (из профиля)
-function openUserReportModal(username) {
-    const modal = document.getElementById('reportModal');
-    if (!modal) return;
-
-    document.getElementById('reportModal').innerHTML = `
-        <div class="modal" style="max-width:400px">
-            <h3>Report User</h3>
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
-                Reporting user: <strong>@${escapeHtml(username)}</strong>
-            </p>
-            <p style="font-size:11px;color:var(--text-muted);margin-bottom:12px">
-                Please describe why you are reporting this user. 
-                Include any relevant details or evidence.
-            </p>
-            <textarea id="userReportReason" placeholder="Reason for reporting this user..." rows="4"
-                      style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border-light);
-                             border-radius:8px;color:var(--text-primary);resize:vertical;font-family:inherit;
-                             font-size:13px"></textarea>
-            <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">
-                Common reasons: spam, harassment, impersonation, inappropriate content
-            </div>
-            <button class="btn-danger" style="margin-top:12px" 
-                    onclick="submitUserReport('${escapeHtml(username)}')">
-                Submit Report
-            </button>
-            <button class="btn-secondary" style="margin-top:8px" 
-                    onclick="document.getElementById('reportModal').style.display='none'">
-                Cancel
-            </button>
-        </div>
-    `;
-
-    document.getElementById('reportModal').style.display = 'flex';
-    document.getElementById('reportModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('reportModal')) {
-            document.getElementById('reportModal').style.display = 'none';
-        }
-    });
-}
-
-// Отправка жалобы на пользователя
-function submitUserReport(username) {
-    const reason = document.getElementById('userReportReason')?.value.trim();
-    if (!reason) {
-        showError('Please enter a reason');
-        return;
-    }
-
-    const reportData = {
-        reporter: currentUser?.username || 'anonymous',
-        reportedUser: username,
-        messageId: '',
-        messageText: 'User report',
-        reason: `[USER REPORT] ${reason}`,
-    };
-
-    submitReportToEmail(reportData);
-    document.getElementById('reportModal').style.display = 'none';
-}
-
-// Модальное окно жалобы на сообщение (полная версия)
+// Модальное окно жалобы на сообщение
 function openMessageReportModal(messageData) {
-    const modal = document.getElementById('reportModal');
+    var modal = document.getElementById('reportModal');
     if (!modal) return;
 
-    document.getElementById('reportModal').innerHTML = `
+    modal.innerHTML = `
         <div class="modal" style="max-width:420px">
             <h3>Report Message</h3>
             
             <div style="background:var(--bg-input);border-radius:8px;padding:10px;margin:12px 0">
                 <div style="font-weight:600;font-size:12px;margin-bottom:4px">
-                    ${escapeHtml(messageData.name || '')}
+                    ${messageData.name || ''}
                     <span style="color:var(--text-muted);font-weight:400">
-                        @${escapeHtml(messageData.username || '')}
+                        @${messageData.username || ''}
                     </span>
                 </div>
                 <div style="font-size:13px;color:var(--text-primary);word-break:break-word">
-                    ${escapeHtml((messageData.text || '[Media]').substring(0, 150))}
+                    ${(messageData.text || '[Media]').substring(0, 150)}
                 </div>
             </div>
             
-            <p style="font-size:11px;color:var(--text-muted);margin-bottom:8px">
-                This report will be sent to the moderation team.
-                Please select a reason:
-            </p>
-            
-            <div class="report-reasons">
-                <button class="report-reason-btn" onclick="selectReason('Spam')">Spam</button>
-                <button class="report-reason-btn" onclick="selectReason('Harassment')">Harassment</button>
-                <button class="report-reason-btn" onclick="selectReason('Inappropriate content')">Inappropriate</button>
-                <button class="report-reason-btn" onclick="selectReason('Impersonation')">Impersonation</button>
-                <button class="report-reason-btn" onclick="selectReason('Violence')">Violence</button>
-                <button class="report-reason-btn" onclick="selectReason('Other')">Other</button>
-            </div>
-            
-            <textarea id="reportDetailReason" placeholder="Additional details (optional)..." rows="3"
+            <textarea id="reportDetailReason" placeholder="Reason for report..." rows="4"
                       style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border-light);
                              border-radius:8px;color:var(--text-primary);resize:vertical;font-family:inherit;
-                             font-size:13px;margin-top:8px"></textarea>
+                             font-size:13px;margin-bottom:12px"></textarea>
             
-            <button class="btn-danger" style="margin-top:12px" onclick="submitDetailedReport()">
-                Send Report
-            </button>
-            <button class="btn-secondary" style="margin-top:8px" 
-                    onclick="document.getElementById('reportModal').style.display='none'">
-                Cancel
-            </button>
+            <div style="display:flex;gap:8px">
+                <button class="btn-danger" id="submitReportBtn" style="flex:1">Send Report</button>
+                <button class="btn-secondary" id="cancelReportBtn" style="flex:1">Cancel</button>
+            </div>
         </div>
     `;
 
-    document.getElementById('reportModal')._messageData = messageData;
-    document.getElementById('reportModal').style.display = 'flex';
-    document.getElementById('reportModal').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('reportModal')) {
-            document.getElementById('reportModal').style.display = 'none';
+    modal.style.display = 'flex';
+    modal._messageData = messageData;
+
+    document.getElementById('submitReportBtn').addEventListener('click', function() {
+        var reason = document.getElementById('reportDetailReason').value.trim();
+        if (!reason) {
+            alert('Enter reason');
+            return;
         }
+        submitFullReport(messageData, reason);
+        modal.style.display = 'none';
+    });
+
+    document.getElementById('cancelReportBtn').addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.style.display = 'none';
     });
 }
 
-// Выбор причины жалобы
-function selectReason(reason) {
-    const detailInput = document.getElementById('reportDetailReason');
-    if (detailInput) {
-        detailInput.dataset.reason = reason;
-        detailInput.placeholder = `Reason: ${reason}. Add details...`;
-        detailInput.focus();
-    }
-    
-    // Подсветка выбранной кнопки
-    document.querySelectorAll('.report-reason-btn').forEach(btn => {
-        btn.classList.remove('selected');
-        if (btn.textContent === reason) {
-            btn.classList.add('selected');
-        }
-    });
-}
+// Окно "Сообщить о проблеме"
+function openProblemReport() {
+    var modal = document.getElementById('reportModal');
+    if (!modal) return;
 
-// Отправка детальной жалобы
-function submitDetailedReport() {
-    const detailInput = document.getElementById('reportDetailReason');
-    const reason = detailInput?.dataset?.reason || 'Not specified';
-    const details = detailInput?.value?.trim() || '';
-    
-    const fullReason = details ? `${reason}: ${details}` : reason;
-    const messageData = document.getElementById('reportModal')._messageData;
-    
-    if (messageData) {
-        submitFullReport(messageData, fullReason);
-        document.getElementById('reportModal').style.display = 'none';
-    }
-}
-
-// Добавление стилей для жалоб
-function addReportStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        .report-reasons {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .report-reason-btn {
-            padding: 6px 12px;
-            background: var(--bg-input);
-            border: 1px solid var(--border-light);
-            border-radius: 16px;
-            color: var(--text-primary);
-            cursor: pointer;
-            font-size: 12px;
-            transition: var(--transition);
-        }
-        .report-reason-btn:hover {
-            background: var(--border);
-        }
-        .report-reason-btn.selected {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #fff;
-        }
+    modal.innerHTML = `
+        <div class="modal" style="max-width:420px">
+            <h3>Report a Problem</h3>
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:12px">
+                Describe the issue you are experiencing. Include steps to reproduce if possible.
+            </p>
+            
+            <textarea id="problemDescription" placeholder="Describe the problem in detail..." rows="5"
+                      style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border-light);
+                             border-radius:8px;color:var(--text-primary);resize:vertical;font-family:inherit;
+                             font-size:13px;margin-bottom:12px"></textarea>
+            
+            <div style="display:flex;gap:8px">
+                <button class="btn-danger" id="submitProblemBtn" style="flex:1">Send Report</button>
+                <button class="btn-secondary" id="cancelProblemBtn" style="flex:1">Cancel</button>
+            </div>
+        </div>
     `;
-    document.head.appendChild(style);
+
+    modal.style.display = 'flex';
+
+    document.getElementById('submitProblemBtn').addEventListener('click', function() {
+        var description = document.getElementById('problemDescription').value.trim();
+        if (!description) {
+            alert('Please describe the problem');
+            return;
+        }
+        
+        var reportData = {
+            reporter: (currentUser && currentUser.username) || 'anonymous',
+            reportedUser: '',
+            messageId: '',
+            messageText: '',
+            reason: '[PROBLEM REPORT] ' + description,
+        };
+        
+        submitReportToEmail(reportData);
+        modal.style.display = 'none';
+    });
+
+    document.getElementById('cancelProblemBtn').addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+    });
 }
 
-addReportStyles();
+// Жалоба на пользователя
+function openUserReportModal(username) {
+    var modal = document.getElementById('reportModal');
+    if (!modal) return;
+
+    modal.innerHTML = `
+        <div class="modal" style="max-width:420px">
+            <h3>Report User</h3>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">
+                Reporting user: <strong>@${username}</strong>
+            </p>
+            
+            <textarea id="userReportReason" placeholder="Reason for reporting this user..." rows="4"
+                      style="width:100%;padding:10px;background:var(--bg-input);border:1px solid var(--border-light);
+                             border-radius:8px;color:var(--text-primary);resize:vertical;font-family:inherit;
+                             font-size:13px;margin-bottom:12px"></textarea>
+            
+            <div style="display:flex;gap:8px">
+                <button class="btn-danger" id="submitUserReportBtn" style="flex:1">Send Report</button>
+                <button class="btn-secondary" id="cancelUserReportBtn" style="flex:1">Cancel</button>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'flex';
+
+    document.getElementById('submitUserReportBtn').addEventListener('click', function() {
+        var reason = document.getElementById('userReportReason').value.trim();
+        if (!reason) {
+            alert('Enter reason');
+            return;
+        }
+        
+        var reportData = {
+            reporter: (currentUser && currentUser.username) || 'anonymous',
+            reportedUser: username,
+            messageId: '',
+            messageText: 'User report',
+            reason: '[USER REPORT] ' + reason,
+        };
+        
+        submitReportToEmail(reportData);
+        modal.style.display = 'none';
+    });
+
+    document.getElementById('cancelUserReportBtn').addEventListener('click', function() {
+        modal.style.display = 'none';
+    });
+
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) modal.style.display = 'none';
+    });
+}
+
+// Делаем доступным глобально
+window.openProblemReport = openProblemReport;
+window.openMessageReportModal = openMessageReportModal;
+window.openUserReportModal = openUserReportModal;

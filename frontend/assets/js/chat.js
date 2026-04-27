@@ -148,14 +148,15 @@ function initChatMenu() {
     const menuBtn = document.getElementById('menuBtn');
     const menu = document.getElementById('menuDropdown');
 
-    menuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = menu.style.display === 'block';
-        menu.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) {
-            positionDropdown(menu, menuBtn);
-        }
-    });
+    // Внутри initChatMenu, в обработчике menuBtn:
+menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = menu.style.display === 'block';
+    menu.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+        positionDropdown(menu, menuBtn);
+    }
+});
 
     menu.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', () => {
@@ -496,25 +497,71 @@ function scrollToMessage(messageId) {
 }
 
 // Позиционирование выпадающего меню
+// frontend/assets/js/chat.js
+
+// Замени текущую функцию positionDropdown на эту:
 function positionDropdown(menu, trigger) {
     const rect = trigger.getBoundingClientRect();
-    menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    const menuWidth = menu.offsetWidth || 200;
+    const menuHeight = menu.offsetHeight || 200;
+    
+    // Для меню вложений (+) - показываем справа от кнопки
+    if (menu.id === 'attachMenu') {
+        menu.style.bottom = 'auto';
+        menu.style.top = (rect.top - menuHeight) + 'px';
+        menu.style.left = (rect.right + 8) + 'px';
+        menu.style.right = 'auto';
+        
+        // Если не помещается справа - показываем слева
+        if (rect.right + menuWidth + 8 > window.innerWidth) {
+            menu.style.left = 'auto';
+            menu.style.right = (window.innerWidth - rect.left + 8) + 'px';
+        }
+        
+        // Если не помещается сверху - показываем снизу
+        if (rect.top - menuHeight < 0) {
+            menu.style.top = (rect.bottom + 8) + 'px';
+        }
+    }
+    
+    // Для меню чата (⋮) - показываем снизу справа
+    if (menu.id === 'menuDropdown') {
+        menu.style.top = (rect.bottom + 8) + 'px';
+        menu.style.bottom = 'auto';
+        menu.style.right = (window.innerWidth - rect.right) + 'px';
+        menu.style.left = 'auto';
+        
+        // Если не помещается справа - прижимаем к правому краю
+        if (rect.right - menuWidth < 0) {
+            menu.style.right = '8px';
+        }
+        
+        // Если не помещается снизу - показываем сверху
+        if (rect.bottom + menuHeight + 8 > window.innerHeight) {
+            menu.style.top = 'auto';
+            menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+        }
+    }
+    
+    // Для контекстного меню (ПКМ)
+    if (menu.id === 'contextMenu') {
+        // Позиция задается в contextMenu.js при показе
+    }
 }
-
 // Инициализация меню вложений
 function initAttachMenu() {
     const plusBtn = document.getElementById('plusBtn');
     const attachMenu = document.getElementById('attachMenu');
 
-    plusBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isVisible = attachMenu.style.display === 'block';
-        attachMenu.style.display = isVisible ? 'none' : 'block';
-        if (!isVisible) {
-            positionDropdown(attachMenu, plusBtn);
-        }
-    });
+    // Внутри initAttachMenu, в обработчике plusBtn:
+plusBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = attachMenu.style.display === 'block';
+    attachMenu.style.display = isVisible ? 'none' : 'block';
+    if (!isVisible) {
+        positionDropdown(attachMenu, plusBtn);
+    }
+});
 
     attachMenu.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', () => {

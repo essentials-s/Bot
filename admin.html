@@ -5,6 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - World Chat</title>
     <link rel="stylesheet" href="assets/css/admin.css">
+    <style>
+        /* Стили для вкладки Chat */
+        .admin-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-height: 300px;
+            max-height: 50vh;
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            margin-bottom: 10px;
+        }
+        .admin-chat-msg {
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            line-height: 1.4;
+            max-width: 85%;
+        }
+        .admin-chat-msg.user {
+            background: var(--bg-input);
+            align-self: flex-start;
+        }
+        .admin-chat-msg.admin {
+            background: var(--accent);
+            color: #fff;
+            align-self: flex-end;
+        }
+        .admin-chat-name {
+            font-weight: 600;
+            font-size: 10px;
+            margin-bottom: 2px;
+            opacity: 0.8;
+        }
+        .admin-chat-time {
+            font-size: 9px;
+            opacity: 0.5;
+            text-align: right;
+            margin-top: 2px;
+        }
+        .admin-chat-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+        .admin-chat-input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+        }
+        .admin-chat-input-row input:focus {
+            border-color: var(--accent);
+        }
+        .admin-chat-input-row button {
+            padding: 10px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+    </style>
 </head>
 <body>
     <div id="adminApp">
@@ -21,7 +95,6 @@
 
         <!-- Панель -->
         <div id="adminPanel" class="admin-container" style="display:none">
-            <!-- Хедер -->
             <div class="admin-header">
                 <h2>Admin Panel</h2>
                 <span id="adminOnlineCount">0 online</span>
@@ -30,24 +103,34 @@
 
             <!-- Табы -->
             <div class="admin-tabs">
-                <button class="admin-tab active" data-tab="messages">Messages</button>
-                <button class="admin-tab" data-tab="quick">Quick Messages</button>
+                <button class="admin-tab active" data-tab="chat">Chat</button>
+                <button class="admin-tab" data-tab="messages">Messages</button>
+                <button class="admin-tab" data-tab="quick">Quick Msg</button>
                 <button class="admin-tab" data-tab="customize">Customize</button>
                 <button class="admin-tab" data-tab="users">Users</button>
             </div>
 
             <!-- Контент -->
             <div class="admin-content">
-                <!-- Таб: Сообщения -->
-                <div id="tab-messages" class="admin-tab-content active">
+                <!-- Вкладка Chat -->
+                <div id="tab-chat" class="admin-tab-content active">
+                    <div class="admin-chat-messages" id="adminChatMessages"></div>
+                    <div class="admin-chat-input-row">
+                        <input type="text" id="adminChatInput" placeholder="Write as Bot..." maxlength="500">
+                        <button id="adminChatSend">Send</button>
+                    </div>
+                </div>
+
+                <!-- Вкладка Messages -->
+                <div id="tab-messages" class="admin-tab-content">
                     <div class="admin-messages" id="adminMessagesList"></div>
                 </div>
 
-                <!-- Таб: Быстрые сообщения -->
+                <!-- Вкладка Quick Messages -->
                 <div id="tab-quick" class="admin-tab-content">
                     <div class="quick-msgs-header">
                         <h3>Quick Messages</h3>
-                        <button id="addQuickMsgBtn" class="btn-primary">+ Add</button>
+                        <button id="addQuickMsgBtn" class="btn-primary" style="width:auto">+ Add</button>
                     </div>
                     <div id="quickMessagesList"></div>
                     <div id="addQuickMsgForm" style="display:none;margin-top:12px">
@@ -59,74 +142,54 @@
                     </div>
                 </div>
 
-                <!-- Таб: Кастомизация -->
+                <!-- Вкладка Customize -->
                 <div id="tab-customize" class="admin-tab-content">
                     <div class="customize-section">
                         <h3>Bot Identity</h3>
-                        
                         <div class="customize-row">
                             <label>Bot Name</label>
                             <input type="text" id="botName" placeholder="Bot" maxlength="20">
                         </div>
-                        
                         <div class="customize-row">
                             <label>Bot Tag</label>
-                            <input type="text" id="botTag" placeholder="bot" maxlength="15" style="color:var(--accent)">
+                            <input type="text" id="botTag" placeholder="bot" maxlength="15">
                         </div>
-                        
                         <div class="customize-row">
                             <label>Bot Avatar</label>
                             <div style="display:flex;align-items:center;gap:10px">
-                                <div id="botAvatarPreview" class="bot-avatar-preview"></div>
+                                <div id="botAvatarPreview" class="bot-avatar-preview">B</div>
                                 <button id="changeBotAvatar" class="btn-secondary">Change</button>
                             </div>
                         </div>
                     </div>
-
                     <div class="customize-section">
                         <h3>Message Colors</h3>
-                        
                         <div class="customize-row">
                             <label>Background</label>
                             <input type="color" id="botBgColor" value="#1e3a5f">
                         </div>
-                        
-                        <div class="customize-row">
-                            <label>Border</label>
-                            <input type="color" id="botBorderColor" value="#2563eb">
-                        </div>
-                        
                         <div class="customize-row">
                             <label>Text</label>
                             <input type="color" id="botTextColor" value="#e2e8f0">
                         </div>
-                        
-                        <div class="customize-row">
-                            <label>Tag Color</label>
-                            <input type="color" id="botTagColor" value="#60a5fa">
-                        </div>
-                        
                         <div class="customize-row">
                             <label>Name Color</label>
                             <input type="color" id="botNameColor" value="#93c5fd">
                         </div>
-                        
-                        <button id="applyColors" class="btn-primary" style="margin-top:12px">Apply Colors</button>
+                        <button id="applyColors" class="btn-primary" style="margin-top:12px">Apply</button>
                     </div>
-
                     <div class="customize-section">
                         <h3>Preview</h3>
-                        <div class="msg-preview" id="botMsgPreview">
-                            <div class="msg-preview-name" id="previewName">Bot</div>
-                            <div class="msg-preview-bubble" id="previewBubble">
-                                <span class="msg-preview-tag" id="previewTag">bot</span>
-                                This is a preview message
+                        <div class="msg-preview">
+                            <div class="msg-preview-name" id="previewName" style="color:#93c5fd">Bot</div>
+                            <div class="msg-preview-bubble" id="previewBubble" style="background:#1e3a5f;color:#e2e8f0;border-color:#2563eb">
+                                Preview message
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Таб: Пользователи -->
+                <!-- Вкладка Users -->
                 <div id="tab-users" class="admin-tab-content">
                     <div id="adminUsersList"></div>
                 </div>

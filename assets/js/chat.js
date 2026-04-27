@@ -1,57 +1,47 @@
 // frontend/assets/js/chat.js
 
-// Состояние чата
-const chatState = {
+var chatState = {
     messages: [],
     pinnedMessageId: null,
     replyTo: null,
     deleteMode: false,
-    selectedForDelete: new Set(),
+    selectedForDelete: [],
     unreadCount: 0,
     nearBottom: true,
+    typingTimeout: null,
+    editingId: null,
 };
 
-// Инициализация чата
 function initChat() {
-    const msgInput = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const messagesContainer = document.getElementById('messagesContainer');
+    var msgInput = document.getElementById('msgInput');
+    var sendBtn = document.getElementById('sendBtn');
+    var messagesContainer = document.getElementById('messagesContainer');
 
-    // Ввод сообщения
     msgInput.addEventListener('input', handleInputChange);
     msgInput.addEventListener('keydown', handleInputKeydown);
     sendBtn.addEventListener('click', handleSendClick);
-
-    // Скролл
     messagesContainer.addEventListener('scroll', handleScroll);
 
-    // Кнопка скролла вниз
-    document.getElementById('scrollBtn').addEventListener('click', scrollToBottom);
+    document.getElementById('scrollBtn').addEventListener('click', function() {
+        scrollToBottom();
+        chatState.unreadCount = 0;
+        updateScrollButton();
+    });
 
-    // Меню (три точки)
     initChatMenu();
-
-    // Кнопка +
     initAttachMenu();
-
-    // Закреплённое сообщение
-    initPinnedMessage();
-
-    // Ссылки
-    initLinkHandling();
 }
 
-// Обработка ввода
+// Ввод
 function handleInputChange() {
-    const input = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const micBtn = document.getElementById('micBtn');
-    const isEmpty = !input.value.trim() && mediaState.pendingFiles.length === 0;
+    var input = document.getElementById('msgInput');
+    var sendBtn = document.getElementById('sendBtn');
+    var micBtn = document.getElementById('micBtn');
+    var isEmpty = !input.value.trim() && (!window.mediaState || window.mediaState.pendingFiles.length === 0);
 
-    sendBtn.disabled = isEmpty && mediaState.pendingFiles.length === 0;
+    sendBtn.disabled = isEmpty;
 
-    // Переключение между кнопкой отправки и микрофоном
-    if (isEmpty && !input.dataset.editingId) {
+    if (isEmpty && !chatState.editingId) {
         sendBtn.style.display = 'none';
         if (micBtn) micBtn.style.display = 'flex';
     } else {
@@ -59,24 +49,24 @@ function handleInputChange() {
         if (micBtn) micBtn.style.display = 'none';
     }
 
-    // Отправка индикатора печати
-    if (input.value.trim() && !chatState._typingSent) {
-        chatState._typingSent = true;
-        sendTyping();
-        setTimeout(() => { chatState._typingSent = false; }, 3000);
+    if (input.value.trim()) {
+        sendTypingThrottled();
     }
 
-    // Авто-рост поля ввода
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 100) + 'px';
 }
 
+var sendTypingThrottled = throttle(function() {
+    sendTyping();
+}, 3000);
+
 function handleInputKeydown(e) {
-    const input = document.getElementById('msgInput');
+    var input = document.getElementById('msgInput');
 
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        if (input.dataset.editingId) {
+        if (chatState.editingId) {
             submitEditMessage();
         } else {
             handleSendClick();
@@ -84,42 +74,51 @@ function handleInputKeydown(e) {
     }
 
     if (e.key === 'Escape') {
-        if (input.dataset.editingId) {
-            cancelEdit();
-        }
-        if (chatState.replyTo) {
-            cancelReply();
-        }
-    }
-
-    // Tab для вставки форматирования
-    if (e.key === 'Tab') {
-        e.preventDefault();
-        // Можно добавить автодополнение @username
+        if (chatState.editingId) cancelEdit();
+        if (chatState.replyTo) cancelReply();
     }
 }
 
 function handleSendClick() {
-    const input = document.getElementById('msgInput');
-    const text = input.value.trim();
+    var input = document.getElementById('msgInput');
+    var text = input.value.trim();
 
-    if (input.dataset.editingId) {
+    // Команда /admin
+    if (text === '/admin') {
+        input.value = '';
+        document.getElementById('sendBtn').disabled = true;
+        var pass = prompt('Enter admin password:');
+        if (pass === 'admin2011') {
+            window.location.href = '/admin.html';
+        } else if (pass !== null) {
+            if (typeof showToast === 'function') showToast('Wrong password', 'error');
+        }
+        return;
+    }
+
+    if (chatState.editingId) {
         submitEditMessage();
         return;
     }
 
-    if (mediaState.pendingFiles.length > 0 || text) {
-        sendMessageWithMedia(text, chatState.replyTo);
-        input.value = '';
-        input.style.height = 'auto';
-        cancelReply();
+    if (window.mediaState && window.mediaState.pendingFiles && window.mediaState.pendingFiles.length > 0) {
+        if (typeof sendMessageWithMedia === 'function') {
+            sendMessageWithMedia(text, chatState.replyTo);
+        }
+    } else if (text) {
+        sendMessage(text, chatState.replyTo);
     }
+
+    input.value = '';
+    input.style.height = 'auto';
+    document.getElementById('sendBtn').disabled = true;
+    cancelReply();
 }
 
 // Скролл
 function handleScroll() {
-    const container = document.getElementById('messagesContainer');
-    chatState.nearBottom = isNearBottom(100);
+    var container = document.getElementById('messagesContainer');
+    chatState.nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
 
     if (chatState.nearBottom) {
         chatState.unreadCount = 0;
@@ -128,8 +127,8 @@ function handleScroll() {
 }
 
 function updateScrollButton() {
-    const btn = document.getElementById('scrollBtn');
-    const badge = document.getElementById('unreadCount');
+    var btn = document.getElementById('scrollBtn');
+    var badge = document.getElementById('unreadCount');
 
     if (chatState.unreadCount > 0) {
         btn.style.display = 'flex';
@@ -143,220 +142,115 @@ function updateScrollButton() {
     }
 }
 
-// Меню чата (три точки)
+// Меню (три точки)
 function initChatMenu() {
-    const menuBtn = document.getElementById('menuBtn');
-    const menu = document.getElementById('menuDropdown');
+    var menuBtn = document.getElementById('menuBtn');
+    var menu = document.getElementById('menuDropdown');
 
-    // Внутри initChatMenu, в обработчике menuBtn:
-menuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isVisible = menu.style.display === 'block';
-    menu.style.display = isVisible ? 'none' : 'block';
-    if (!isVisible) {
-        positionDropdown(menu, menuBtn);
-    }
-});
-
-    menu.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const action = item.dataset.action;
-            handleMenuAction(action);
-            menu.style.display = 'none';
-        });
+    menuBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
     });
 
-    document.addEventListener('click', () => {
+    document.addEventListener('click', function() {
         menu.style.display = 'none';
     });
-}
 
-function handleMenuAction(action) {
-    switch (action) {
-        case 'settings':
-            openSettings();
-            break;
-        case 'clear-chat':
-            showClearChatConfirmation();
-            break;
-        case 'delete-mode':
+    menu.addEventListener('click', function(e) {
+        var action = e.target.dataset.action;
+        if (!action) return;
+        menu.style.display = 'none';
+
+        if (action === 'settings') {
+            if (typeof openSettings === 'function') openSettings();
+        } else if (action === 'clear-chat') {
+            if (confirm('Clear all messages?')) {
+                document.getElementById('messagesContainer').innerHTML = '<div class="system-msg">Chat cleared</div>';
+                chatState.messages = [];
+                if (typeof showToast === 'function') showToast('Chat cleared', 'success');
+            }
+        } else if (action === 'delete-mode') {
             toggleDeleteMode();
-            break;
-        case 'export':
-            exportHistory('json');
-            break;
-    }
+        } else if (action === 'export') {
+            if (typeof exportHistory === 'function') exportHistory('json');
+        } else if (action === 'logout') {
+            if (typeof window.logout === 'function') window.logout();
+        }
+    });
 }
 
-// Подтверждение очистки чата
-function showClearChatConfirmation() {
-    const modal = document.getElementById('deleteModal');
-    const countEl = document.getElementById('deleteCount');
-    if (!modal || !countEl) return;
+// Меню вложений
+function initAttachMenu() {
+    var plusBtn = document.getElementById('plusBtn');
+    var attachMenu = document.getElementById('attachMenu');
 
-    countEl.textContent = t('confirmClearChat');
-    modal.style.display = 'flex';
+    plusBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        attachMenu.style.display = attachMenu.style.display === 'block' ? 'none' : 'block';
+    });
 
-    document.getElementById('confirmDelete').onclick = () => {
-        // Очищаем локально
-        chatState.messages = [];
-        document.getElementById('messagesContainer').innerHTML = '';
-        modal.style.display = 'none';
-        notifyChatCleared();
-    };
+    document.addEventListener('click', function() {
+        attachMenu.style.display = 'none';
+    });
 
-    document.getElementById('cancelDelete').onclick = () => {
-        modal.style.display = 'none';
-    };
+    attachMenu.addEventListener('click', function(e) {
+        var action = e.target.dataset.action;
+        if (!action) return;
+        attachMenu.style.display = 'none';
+
+        if (action === 'photo' && typeof openPhotoPicker === 'function') openPhotoPicker();
+        if (action === 'video' && typeof openVideoPicker === 'function') openVideoPicker();
+        if (action === 'file' && typeof openFilePicker === 'function') openFilePicker();
+        if (action === 'camera' && typeof openCamera === 'function') openCamera();
+        if (action === 'poll' && typeof openPollModal === 'function') openPollModal('poll');
+        if (action === 'quiz' && typeof openPollModal === 'function') openPollModal('quiz');
+    });
 }
 
-// Режим удаления сообщений
+// Режим удаления
 function toggleDeleteMode() {
     chatState.deleteMode = !chatState.deleteMode;
-    chatState.selectedForDelete.clear();
+    chatState.selectedForDelete = [];
 
-    const container = document.getElementById('chatContainer');
-    if (chatState.deleteMode) {
-        container.classList.add('delete-mode');
-        showToast('Select messages to delete', 'info', 3000);
-
-        // Добавляем чекбоксы
-        document.querySelectorAll('.message').forEach(msg => {
-            addDeleteCheckbox(msg);
-        });
-
-        // Кнопка удаления выбранных
-        showDeleteModeBar();
-    } else {
-        container.classList.remove('delete-mode');
-        document.querySelectorAll('.delete-checkbox').forEach(cb => cb.remove());
-        hideDeleteModeBar();
-    }
-}
-
-function addDeleteCheckbox(msgEl) {
-    if (msgEl.querySelector('.delete-checkbox')) return;
-
-    const checkbox = document.createElement('div');
-    checkbox.className = 'delete-checkbox';
-    checkbox.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const msgId = msgEl.dataset.messageId;
-        if (chatState.selectedForDelete.has(msgId)) {
-            chatState.selectedForDelete.delete(msgId);
-            checkbox.classList.remove('checked');
+    document.querySelectorAll('.message').forEach(function(msg) {
+        if (chatState.deleteMode) {
+            var cb = document.createElement('div');
+            cb.className = 'delete-checkbox';
+            cb.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var msgId = msg.dataset.messageId;
+                var idx = chatState.selectedForDelete.indexOf(msgId);
+                if (idx >= 0) {
+                    chatState.selectedForDelete.splice(idx, 1);
+                    cb.classList.remove('checked');
+                } else {
+                    chatState.selectedForDelete.push(msgId);
+                    cb.classList.add('checked');
+                }
+            });
+            msg.appendChild(cb);
         } else {
-            chatState.selectedForDelete.add(msgId);
-            checkbox.classList.add('checked');
+            var existing = msg.querySelector('.delete-checkbox');
+            if (existing) existing.remove();
         }
-        updateDeleteModeBar();
     });
 
-    msgEl.appendChild(checkbox);
-}
-
-function showDeleteModeBar() {
-    let bar = document.getElementById('deleteModeBar');
-    if (!bar) {
-        bar = document.createElement('div');
-        bar.id = 'deleteModeBar';
-        bar.className = 'delete-mode-bar';
-        bar.innerHTML = `
-            <span id="deleteCountText">0 selected</span>
-            <button id="cancelDeleteMode" class="btn-secondary">Cancel</button>
-            <button id="confirmDeleteSelected" class="btn-danger">Delete</button>
-        `;
-        document.getElementById('chatContainer').appendChild(bar);
-
-        document.getElementById('cancelDeleteMode').addEventListener('click', toggleDeleteMode);
-        document.getElementById('confirmDeleteSelected').addEventListener('click', () => {
-            if (chatState.selectedForDelete.size > 0) {
-                showDeleteConfirmation(Array.from(chatState.selectedForDelete));
-                toggleDeleteMode();
-            }
-        });
+    if (!chatState.deleteMode && chatState.selectedForDelete.length > 0) {
+        if (confirm('Delete ' + chatState.selectedForDelete.length + ' messages?')) {
+            chatState.selectedForDelete.forEach(function(id) {
+                deleteMessage(id, 'all');
+            });
+            if (typeof showToast === 'function') showToast('Deleted', 'success');
+        }
     }
-    bar.style.display = 'flex';
-    updateDeleteModeBar();
 }
 
-function hideDeleteModeBar() {
-    const bar = document.getElementById('deleteModeBar');
-    if (bar) bar.style.display = 'none';
-}
-
-function updateDeleteModeBar() {
-    const count = chatState.selectedForDelete.size;
-    const text = document.getElementById('deleteCountText');
-    if (text) text.textContent = `${count} selected`;
-}
-
-// Закреплённое сообщение
-function initPinnedMessage() {
-    const pinnedEl = document.getElementById('pinnedMessage');
-    const unpinBtn = document.getElementById('unpinBtn');
-
-    pinnedEl.addEventListener('click', () => {
-        if (chatState.pinnedMessageId) {
-            const msgEl = document.querySelector(`[data-message-id="${chatState.pinnedMessageId}"]`);
-            if (msgEl) {
-                msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                msgEl.style.animation = 'highlightPulse 1s ease';
-                setTimeout(() => msgEl.style.animation = '', 1000);
-            }
-        }
-    });
-
-    unpinBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (currentUser?.badge === 'admin') {
-            pinMessage(null);
-        }
-    });
-}
-
-// Обработка ссылок
-function initLinkHandling() {
-    document.addEventListener('click', (e) => {
-        const link = e.target.closest('.chat-link');
-        if (link) {
-            e.preventDefault();
-            showLinkConfirmation(link.dataset.url || link.href);
-        }
-    });
-}
-
-function showLinkConfirmation(url) {
-    const modal = document.getElementById('linkModal');
-    const urlEl = document.getElementById('linkUrl');
-    if (!modal || !urlEl) return;
-
-    urlEl.textContent = url;
-    modal.style.display = 'flex';
-
-    document.getElementById('openLink').onclick = () => {
-        window.open(url, '_blank', 'noopener,noreferrer');
-        modal.style.display = 'none';
-    };
-
-    document.getElementById('cancelLink').onclick = () => {
-        modal.style.display = 'none';
-    };
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
-    });
-}
-
-// Превью ответа
+// Ответ
 function setReply(messageId, name, text) {
     chatState.replyTo = messageId;
-    const preview = document.getElementById('replyPreview');
     document.getElementById('rpName').textContent = name;
     document.getElementById('rpText').textContent = text || '';
-    preview.style.display = 'flex';
-
-    document.getElementById('rpClose').addEventListener('click', cancelReply);
+    document.getElementById('replyPreview').style.display = 'flex';
     document.getElementById('msgInput').focus();
 }
 
@@ -365,121 +259,106 @@ function cancelReply() {
     document.getElementById('replyPreview').style.display = 'none';
 }
 
-// Рендеринг сообщения
+// Редактирование
+function startEditMessage(messageId, text) {
+    var input = document.getElementById('msgInput');
+    chatState.editingId = messageId;
+    input.value = text;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    input.dispatchEvent(new Event('input'));
+
+    var indicator = document.getElementById('editingIndicator');
+    if (indicator) indicator.style.display = 'flex';
+}
+
+function submitEditMessage() {
+    var input = document.getElementById('msgInput');
+    if (!chatState.editingId) return;
+    editMessage(chatState.editingId, input.value.trim());
+    chatState.editingId = null;
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    var indicator = document.getElementById('editingIndicator');
+    if (indicator) indicator.style.display = 'none';
+}
+
+function cancelEdit() {
+    var input = document.getElementById('msgInput');
+    chatState.editingId = null;
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    var indicator = document.getElementById('editingIndicator');
+    if (indicator) indicator.style.display = 'none';
+}
+
+// Рендер сообщений
 function renderMessage(msg) {
-    const container = document.getElementById('messagesContainer');
-    const div = document.createElement('div');
+    var container = document.getElementById('messagesContainer');
+    var div = document.createElement('div');
     div.className = 'message';
     div.dataset.messageId = msg.id;
 
-    const isOwn = currentUser && msg.username === currentUser.username;
-    const isAdmin = msg.username === 'admin' || msg.badge === 'admin';
+    var isOwn = currentUser && msg.username === currentUser.username;
+    var isAdmin = msg.badge === 'admin' || msg.username === 'admin';
+    var nameColor = getColor(msg.name);
+    var time = new Date(msg.time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-    // Аватарка
-    const avatarHtml = createAvatarHtml({ name: msg.name, username: msg.username, avatar: msg.avatar });
-
-    // Имя
-    const nameColor = getColor(msg.name);
-    const verifiedIcon = msg.verified ? ' <span style="color:var(--accent);font-size:10px">✓</span>' : '';
-
-    // Время
-    const time = formatMessageTime(msg.time);
-
-    // Текст с маркдауном
-    let textHtml = '';
-    if (msg.deleted) {
-        textHtml = `<span class="deleted-msg">${t('deleted')}</span>`;
-    } else if (msg.type === 'text' || !msg.type) {
-        textHtml = parseMarkdown(msg.text || '');
-    } else if (msg.type === 'image' || msg.type === 'video' || msg.type === 'file' || msg.type === 'voice') {
-        textHtml = createMediaMessageHtml(msg);
-        if (msg.text) {
-            textHtml += parseMarkdown(msg.text);
-        }
-    }
-
-    // Ответ
-    let replyHtml = '';
+    var replyHTML = '';
     if (msg.replyTo) {
-        const repliedMsg = chatState.messages.find(m => m.id === msg.replyTo);
-        if (repliedMsg && !repliedMsg.deleted) {
-            replyHtml = `
-                <div class="reply-block" onclick="scrollToMessage('${repliedMsg.id}')">
-                    <strong>${escapeHtml(repliedMsg.name)}</strong>
-                    ${escapeHtml((repliedMsg.text || '[Media]').substring(0, 50))}
-                </div>
-            `;
-        } else {
-            replyHtml = `<div class="reply-block"><em>${t('deleted')}</em></div>`;
+        var replied = chatState.messages.find(function(m) { return m.id === msg.replyTo; });
+        if (replied) {
+            replyHTML = '<div class="reply-block" onclick="scrollToMessage(\'' + replied.id + '\')"><strong>' + esc(replied.name) + '</strong>: ' + esc((replied.text||'').substring(0,40)) + '</div>';
         }
     }
 
-    // Редактирование
-    const editedLabel = msg.edited ? `<span class="edited-label">${t('edited')}</span>` : '';
-
-    // Галочки
-    let checkmarks = '';
-    if (isOwn) {
-        checkmarks = `<span class="checkmarks">${t('sent')}</span>`;
+    var textHTML = '';
+    if (msg.deleted) {
+        textHTML = '<span class="deleted-msg">This message was deleted</span>';
+    } else if (msg.type === 'image' && msg.fileUrl) {
+        textHTML = '<img src="' + msg.fileUrl + '" class="msg-image" onclick="openMediaViewer(\'' + msg.fileUrl + '\',\'image\')" style="max-width:200px;max-height:200px;border-radius:8px;cursor:pointer">';
+    } else if (msg.type === 'voice' && msg.fileUrl) {
+        textHTML = '<div class="voice-msg"><button class="voice-play-btn" onclick="toggleVoicePlay(this,\'' + msg.fileUrl + '\')">&#9654;</button><span>' + (msg.duration||0) + 's</span></div>';
+    } else {
+        textHTML = typeof parseMarkdown === 'function' ? parseMarkdown(msg.text || '') : esc(msg.text || '');
     }
 
-    // Реакции
-    let reactionsHtml = '';
-    if (msg.reactions && msg.reactions.length > 0) {
-        reactionsHtml = '<div class="reactions">';
-        msg.reactions.forEach(r => {
-            reactionsHtml += `<span class="reaction${r.users.includes(currentUser?.username) ? ' active' : ''}" 
-                                   onclick="sendReaction('${msg.id}', '${r.reaction}')">
-                ${r.reaction} ${r.count}
-            </span>`;
-        });
-        reactionsHtml += '</div>';
-    }
+    var editedLabel = msg.edited ? '<span class="edited-label">edited</span>' : '';
 
-    div.innerHTML = `
-        ${avatarHtml}
-        <div class="msg-content">
-            <div class="msg-header">
-                <span class="msg-name" style="color:${nameColor}" onclick="showUserProfile('${msg.username}')">${escapeHtml(msg.name)}${verifiedIcon}</span>
-                <span class="msg-username">@${escapeHtml(msg.username)}</span>
-                <span class="msg-time">${time}${checkmarks}</span>
-            </div>
-            <div class="msg-bubble ${msg.edited ? 'edited' : ''} ${isAdmin ? 'admin' : ''}">
-                ${replyHtml}
-                ${textHtml}
-            </div>
-            ${editedLabel}
-            ${reactionsHtml}
-        </div>
-        <div class="msg-actions">
-            <button class="msg-action-btn" title="${t('reply')}" onclick="setReply('${msg.id}','${escapeHtml(msg.name)}','${escapeHtml((msg.text||'').substring(0,50))}')">↩</button>
-            ${msg.text ? `<button class="msg-action-btn" title="${t('copy')}" onclick="copyToClipboard('${escapeHtml(msg.text).replace(/'/g, "\\'")}');notifyCopied()">📋</button>` : ''}
-            ${isOwn && msg.text && msg.type === 'text' ? `<button class="msg-action-btn" title="${t('edit')}" onclick="startEditMessage('${msg.id}','${escapeHtml(msg.text).replace(/'/g, "\\'")}')">✏</button>` : ''}
-        </div>
-    `;
-
-    // Контекстное меню
-    div.addEventListener('contextmenu', (e) => {
-        showContextMenu(e, msg);
-    });
-
-    // Долгое нажатие для мобильных
-    let longPressTimer;
-    div.addEventListener('touchstart', (e) => {
-        longPressTimer = setTimeout(() => {
-            showContextMenu(e, msg);
-        }, 500);
-    });
-    div.addEventListener('touchend', () => clearTimeout(longPressTimer));
-    div.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+    div.innerHTML = 
+        '<div class="msg-avatar" style="background:' + getAvatarColor(msg.name) + '" onclick="showUserProfile(\'' + (msg.username||'') + '\')">' + getInitial(msg.name) + '</div>' +
+        '<div class="msg-content">' +
+            '<div class="msg-header">' +
+                '<span class="msg-name" style="color:' + nameColor + '">' + esc(msg.name) + '</span>' +
+                '<span class="msg-username">@' + esc(msg.username||'') + '</span>' +
+                '<span class="msg-time">' + time + '</span>' +
+                (isOwn ? '<span class="checkmarks sent">&#10003;</span>' : '') +
+            '</div>' +
+            '<div class="msg-bubble' + (msg.edited?' edited':'') + (isAdmin?' admin-bot':'') + '">' +
+                replyHTML + textHTML +
+            '</div>' +
+            editedLabel +
+        '</div>' +
+        '<div class="msg-actions">' +
+            '<button class="msg-action-btn" onclick="setReply(\'' + msg.id + '\',\'' + esc(msg.name) + '\',\'' + esc((msg.text||'').substring(0,50)) + '\')">&#8617;</button>' +
+            (msg.text && isOwn ? '<button class="msg-action-btn" onclick="startEditMessage(\'' + msg.id + '\',\'' + esc(msg.text).replace(/'/g,"\\'") + '\')">&#9998;</button>' : '') +
+            '<button class="msg-action-btn" onclick="copyToClipboard(\'' + esc(msg.text||'').replace(/'/g,"\\'") + '\');if(typeof showToast==\'function\')showToast(\'Copied\',\'success\')">&#128203;</button>' +
+            (isOwn ? '<button class="msg-action-btn danger" onclick="if(confirm(\'Delete?\'))deleteMessage(\'' + msg.id + '\',\'all\')">&#128465;</button>' : '') +
+        '</div>';
 
     container.appendChild(div);
+
+    // Контекстное меню
+    div.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        if (typeof showContextMenu === 'function') showContextMenu(e, msg);
+    });
 }
 
-// Добавление системного сообщения
+// Системное сообщение
 function addSystemMessage(text) {
-    const container = document.getElementById('messagesContainer');
-    const div = document.createElement('div');
+    var container = document.getElementById('messagesContainer');
+    var div = document.createElement('div');
     div.className = 'system-msg';
     div.textContent = text;
     container.appendChild(div);
@@ -488,119 +367,50 @@ function addSystemMessage(text) {
 
 // Скролл к сообщению
 function scrollToMessage(messageId) {
-    const msgEl = document.querySelector(`[data-message-id="${messageId}"]`);
-    if (msgEl) {
-        msgEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        msgEl.style.animation = 'highlightPulse 1s ease';
-        setTimeout(() => msgEl.style.animation = '', 1000);
+    var el = document.querySelector('[data-message-id="' + messageId + '"]');
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.animation = 'highlightPulse 1s ease';
+        setTimeout(function() { el.style.animation = ''; }, 1000);
     }
 }
 
-// Позиционирование выпадающего меню
-// frontend/assets/js/chat.js
-
-// Замени текущую функцию positionDropdown на эту:
-function positionDropdown(menu, trigger) {
-    const rect = trigger.getBoundingClientRect();
-    const menuWidth = menu.offsetWidth || 200;
-    const menuHeight = menu.offsetHeight || 200;
-    
-    // Для меню вложений (+) - показываем справа от кнопки
-    if (menu.id === 'attachMenu') {
-        menu.style.bottom = 'auto';
-        menu.style.top = (rect.top - menuHeight) + 'px';
-        menu.style.left = (rect.right + 8) + 'px';
-        menu.style.right = 'auto';
-        
-        // Если не помещается справа - показываем слева
-        if (rect.right + menuWidth + 8 > window.innerWidth) {
-            menu.style.left = 'auto';
-            menu.style.right = (window.innerWidth - rect.left + 8) + 'px';
-        }
-        
-        // Если не помещается сверху - показываем снизу
-        if (rect.top - menuHeight < 0) {
-            menu.style.top = (rect.bottom + 8) + 'px';
-        }
-    }
-    
-    // Для меню чата (⋮) - показываем снизу справа
-    if (menu.id === 'menuDropdown') {
-        menu.style.top = (rect.bottom + 8) + 'px';
-        menu.style.bottom = 'auto';
-        menu.style.right = (window.innerWidth - rect.right) + 'px';
-        menu.style.left = 'auto';
-        
-        // Если не помещается справа - прижимаем к правому краю
-        if (rect.right - menuWidth < 0) {
-            menu.style.right = '8px';
-        }
-        
-        // Если не помещается снизу - показываем сверху
-        if (rect.bottom + menuHeight + 8 > window.innerHeight) {
-            menu.style.top = 'auto';
-            menu.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
-        }
-    }
-    
-    // Для контекстного меню (ПКМ)
-    if (menu.id === 'contextMenu') {
-        // Позиция задается в contextMenu.js при показе
-    }
-}
-// Инициализация меню вложений
-function initAttachMenu() {
-    const plusBtn = document.getElementById('plusBtn');
-    const attachMenu = document.getElementById('attachMenu');
-
-    // Внутри initAttachMenu, в обработчике plusBtn:
-plusBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isVisible = attachMenu.style.display === 'block';
-    attachMenu.style.display = isVisible ? 'none' : 'block';
-    if (!isVisible) {
-        positionDropdown(attachMenu, plusBtn);
-    }
-});
-
-    attachMenu.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const action = item.dataset.action;
-            handleAttachAction(action);
-            attachMenu.style.display = 'none';
-        });
-    });
-
-    document.addEventListener('click', () => {
-        attachMenu.style.display = 'none';
-    });
+// Утилиты
+function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
 }
 
-function handleAttachAction(action) {
-    switch (action) {
-        case 'photo':
-            openPhotoPicker();
-            break;
-        case 'video':
-            openVideoPicker();
-            break;
-        case 'file':
-            openFilePicker();
-            break;
-        case 'poll':
-            openPollModal('poll');
-            break;
-        case 'quiz':
-            openPollModal('quiz');
-            break;
+function getColor(name) {
+    var hash = 0;
+    for (var i = 0; i < (name||'').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return 'hsl(' + (Math.abs(hash) % 360) + ',55%,60%)';
+}
+
+function getAvatarColor(name) {
+    var hash = 0;
+    for (var i = 0; i < (name||'').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return 'hsl(' + (Math.abs(hash) % 360) + ',40%,50%)';
+}
+
+function getInitial(name) {
+    return (name||'?').charAt(0).toUpperCase();
+}
+
+function scrollToBottom(smooth) {
+    var container = document.getElementById('messagesContainer');
+    if (container) {
+        container.scrollTo({ top: container.scrollHeight, behavior: smooth ? 'smooth' : 'instant' });
     }
 }
 
-// Обработчики сообщений с сервера
+// Обработчики с сервера
 function handleInit(data) {
     if (data.messages) {
         chatState.messages = data.messages;
-        data.messages.forEach(msg => renderMessage(msg));
+        document.getElementById('messagesContainer').innerHTML = '';
+        data.messages.forEach(function(msg) { renderMessage(msg); });
         scrollToBottom(false);
     }
     if (data.pinned) {
@@ -610,13 +420,14 @@ function handleInit(data) {
     if (data.userId) {
         wsUserId = data.userId;
     }
-    if (data.polls) {
-        allPolls = data.polls;
-    }
 }
 
 function handleNewMessage(data) {
-    const msg = data.message;
+    var msg = data.message;
+    if (msg.type === 'system') {
+        addSystemMessage(msg.text);
+        return;
+    }
     chatState.messages.push(msg);
     renderMessage(msg);
 
@@ -626,153 +437,82 @@ function handleNewMessage(data) {
         chatState.unreadCount++;
         updateScrollButton();
     }
-
-    // Уведомление
-    if (msg.username !== currentUser?.username) {
-        notifyNewMessage(msg.name, msg.text);
-    }
 }
 
 function handleMessageEdited(data) {
-    const msg = chatState.messages.find(m => m.id === data.messageId);
+    var msg = chatState.messages.find(function(m) { return m.id === data.messageId; });
     if (msg) {
         msg.text = data.text;
         msg.edited = true;
-        // Перерендериваем
-        const msgEl = document.querySelector(`[data-message-id="${data.messageId}"]`);
-        if (msgEl) {
-            const bubble = msgEl.querySelector('.msg-bubble');
-            if (bubble) {
-                bubble.innerHTML = parseMarkdown(data.text);
-                bubble.classList.add('edited');
-            }
-            if (!msgEl.querySelector('.edited-label')) {
-                const label = document.createElement('span');
-                label.className = 'edited-label';
-                label.textContent = t('edited');
-                bubble.after(label);
-            }
+    }
+    var el = document.querySelector('[data-message-id="' + data.messageId + '"]');
+    if (el) {
+        var bubble = el.querySelector('.msg-bubble');
+        if (bubble) {
+            bubble.innerHTML = (typeof parseMarkdown === 'function' ? parseMarkdown(data.text) : esc(data.text));
+            bubble.classList.add('edited');
+        }
+        if (!el.querySelector('.edited-label')) {
+            var label = document.createElement('span');
+            label.className = 'edited-label';
+            label.textContent = 'edited';
+            bubble.parentNode.appendChild(label);
         }
     }
 }
 
 function handleMessageDeleted(data) {
     if (data.deleteFor === 'all') {
-        const msg = chatState.messages.find(m => m.id === data.messageId);
+        var msg = chatState.messages.find(function(m) { return m.id === data.messageId; });
         if (msg) msg.deleted = true;
-        const msgEl = document.querySelector(`[data-message-id="${data.messageId}"]`);
-        if (msgEl) {
-            const bubble = msgEl.querySelector('.msg-bubble');
-            if (bubble) {
-                bubble.innerHTML = `<span class="deleted-msg">${t('deleted')}</span>`;
-                bubble.classList.remove('edited');
-            }
-            const edited = msgEl.querySelector('.edited-label');
-            if (edited) edited.remove();
+        var el = document.querySelector('[data-message-id="' + data.messageId + '"]');
+        if (el) {
+            var bubble = el.querySelector('.msg-bubble');
+            if (bubble) bubble.innerHTML = '<span class="deleted-msg">This message was deleted</span>';
+            var actions = el.querySelector('.msg-actions');
+            if (actions) actions.remove();
         }
-    } else if (data.deleteFor === 'me' && data.username === currentUser?.username) {
-        const msgEl = document.querySelector(`[data-message-id="${data.messageId}"]`);
-        if (msgEl) msgEl.remove();
     }
 }
 
 function handleMessagePinned(data) {
     chatState.pinnedMessageId = data.messageId;
     updatePinnedMessage(data.messageId);
-    notifyPinned();
 }
 
 function updatePinnedMessage(messageId) {
-    const pinnedEl = document.getElementById('pinnedMessage');
-    const pinnedText = document.getElementById('pinnedText');
-
+    var el = document.getElementById('pinnedMessage');
+    var text = document.getElementById('pinnedText');
     if (messageId) {
-        const msg = chatState.messages.find(m => m.id === messageId);
+        var msg = chatState.messages.find(function(m) { return m.id === messageId; });
         if (msg) {
-            pinnedText.textContent = (msg.text || '[Media]').substring(0, 80);
-            pinnedEl.style.display = 'flex';
+            text.textContent = (msg.text || '[media]').substring(0, 80);
+            el.style.display = 'flex';
         }
     } else {
-        pinnedEl.style.display = 'none';
+        el.style.display = 'none';
     }
 }
 
 function handleOnline(data) {
-    document.getElementById('onlineCount').textContent = t('online', { count: data.count });
+    var el = document.getElementById('onlineCount');
+    if (el) el.textContent = data.count + ' online';
 }
 
 function handleTyping(data) {
-    const indicator = document.getElementById('typingIndicator');
-    const text = document.getElementById('typingText');
-    if (indicator && text) {
-        text.textContent = t('typing', { name: data.username });
-        indicator.style.display = 'block';
-        clearTimeout(chatState._typingTimeout);
-        chatState._typingTimeout = setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
+    var el = document.getElementById('typingIndicator');
+    var text = document.getElementById('typingText');
+    if (el && text) {
+        text.textContent = data.username + ' is typing...';
+        el.style.display = 'block';
+        clearTimeout(chatState.typingTimeout);
+        chatState.typingTimeout = setTimeout(function() { el.style.display = 'none'; }, 3000);
     }
 }
 
 function handleMentioned(data) {
-    notifyMention(data.by);
+    if (typeof showToast === 'function') showToast(data.by + ' mentioned you', 'info');
 }
 
-// Добавление стилей
-function addChatStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes highlightPulse {
-            0%,100% { background: transparent; }
-            50% { background: rgba(59,130,246,0.15); }
-        }
-        .delete-mode-bar {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-light);
-            border-radius: var(--radius);
-            padding: 8px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 50;
-            box-shadow: var(--shadow);
-            animation: fadeIn 0.2s ease;
-        }
-        .file-message {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px;
-            background: var(--bg-input);
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        .file-message:hover { background: var(--border); }
-        .file-icon { font-size: 24px; }
-        .file-info { flex: 1; }
-        .file-name { font-size: 12px; display: block; }
-        .file-size { font-size: 10px; color: var(--text-muted); }
-        .file-download { font-size: 16px; }
-        .msg-image {
-            max-width: 250px;
-            max-height: 250px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        .msg-video {
-            max-width: 250px;
-            max-height: 250px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-        #sendBtn, #micBtn { transition: none; }
-    `;
-    document.head.appendChild(style);
-}
-
-addChatStyles();
+// Инициализация
 initChat();

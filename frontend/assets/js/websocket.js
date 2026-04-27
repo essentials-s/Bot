@@ -1,35 +1,72 @@
 // frontend/assets/js/websocket.js
 
-// WebSocket подключение
+// Определение URL сервера
+function getServerUrl() {
+    // Если запущено локально
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return {
+            ws: 'ws://localhost:3000',
+            api: 'http://localhost:3000'
+        };
+    }
+    
+    // Если на Vercel - используем Railway backend
+    // Замени на свой Railway URL после деплоя
+    const railwayUrl = 'world-chat-backend-production.up.railway.app';
+    
+    return {
+        ws: `wss://${railwayUrl}`,
+        api: `https://${railwayUrl}`
+    };
+}
+
+const serverConfig = getServerUrl();
+const WS_URL = serverConfig.ws;
+const API_URL = serverConfig.api;
+
+// Делаем доступным глобально
+window.API_URL = API_URL;
+window.WS_URL = WS_URL;
+
+// WebSocket соединение
 let ws = null;
 let wsReconnectTimer = null;
+let wsReconnectAttempts = 0;
 let wsUserId = null;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_DELAY = 3000;
 
-// Получаем URL сервера
-const WS_URL = (() => {
-    // Замени на свой Railway URL
-    if (window.location.hostname === 'localhost') {
-        return 'ws://localhost:3000';
-    }
-    return 'wss://world-chat-backend-production.up.railway.app';
-})();
-
-// Подключение к WebSocket
+// Подключение
 function connectWebSocket() {
     if (ws && ws.readyState === WebSocket.OPEN) return;
+    if (ws && ws.readyState === WebSocket.CONNECTING) return;
     
     try {
         ws = new WebSocket(WS_URL);
         
         ws.onopen = () => {
             console.log('WebSocket connected');
+            wsReconnectAttempts = 0;
             clearReconnectTimer();
             
-            // Если пользователь уже зарегистрирован, восстанавливаем сессию
+            // Восстанавливаем сессию
             const savedUser = loadUserFromStorage();
-            if (savedUser && savedUser.id) {
+            if (savedUser && savedUser.name && savedUser.username) {
                 wsUserId = savedUser.id;
+                // Отправляем регистрацию для восстановления
+                setTimeout(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({
+                            type: 'register',
+                            name: savedUser.name,
+                            username: savedUser.username
+                        }));
+                    }
+                }, 500);
             }
+            
+            // Обновляем статус
+            updateConnectionStatus(true);
         };
         
         ws.onmessage = (event) => {
@@ -42,30 +79,45 @@ function connectWebSocket() {
         };
         
         ws.onclose = (event) => {
-            console.log('WebSocket disconnected:', event.code);
-            scheduleReconnect();
+            console.log('WebSocket disconnected:', event.code, event.reason);
+            updateConnectionStatus(false);
+            
+            // Не переподключаемся если закрыто нормально
+            if (event.code !== 1000 && event.code !== 1001) {
+                scheduleReconnect();
+            }
         };
         
         ws.onerror = (error) => {
             console.error('WebSocket error:', error);
+            updateConnectionStatus(false);
         };
         
     } catch (e) {
-        console.error('Failed to connect:', e);
+        console.error('Failed to create WebSocket:', e);
         scheduleReconnect();
     }
 }
 
-// Расписание переподключения
+// Переподключение
 function scheduleReconnect() {
+    if (wsReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.log('Max reconnect attempts reached');
+        return;
+    }
+    
     clearReconnectTimer();
+    
+    const delay = Math.min(RECONNECT_DELAY * Math.pow(1.5, wsReconnectAttempts), 30000);
+    wsReconnectAttempts++;
+    
+    console.log(`Reconnecting in ${delay}ms (attempt ${wsReconnectAttempts})`);
+    
     wsReconnectTimer = setTimeout(() => {
-        console.log('Reconnecting...');
         connectWebSocket();
-    }, 3000);
+    }, delay);
 }
 
-// Очистка таймера переподключения
 function clearReconnectTimer() {
     if (wsReconnectTimer) {
         clearTimeout(wsReconnectTimer);
@@ -73,10 +125,19 @@ function clearReconnectTimer() {
     }
 }
 
-// Отправка сообщения на сервер
+// Обновление статуса соединения
+function updateConnectionStatus(connected) {
+    const statusEl = document.getElementById('connectionStatus');
+    if (statusEl) {
+        statusEl.textContent = connected ? '● Online' : '● Reconnecting...';
+        statusEl.style.color = connected ? 'var(--success)' : 'var(--warning)';
+    }
+}
+
+// Отправка сообщения
 function sendToServer(data) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showError('Connection lost. Reconnecting...');
+        console.warn('WebSocket not connected, reconnecting...');
         connectWebSocket();
         return false;
     }
@@ -90,151 +151,77 @@ function sendToServer(data) {
     }
 }
 
-// Регистрация пользователя
+// Функции отправки
 function registerUser(name, username) {
-    sendToServer({
-        type: 'register',
-        name: name,
-        username: username
-    });
+    return sendToServer({ type: 'register', name, username });
 }
 
-// Обновление профиля
 function updateProfile(name, avatar = null) {
-    sendToServer({
-        type: 'update_profile',
-        name: name,
-        avatar: avatar
-    });
+    return sendToServer({ type: 'update_profile', name, avatar });
 }
 
-// Проверка username
 function checkUsername(username) {
-    sendToServer({
-        type: 'check_username',
-        username: username
-    });
+    return sendToServer({ type: 'check_username', username });
 }
 
-// Отправка сообщения
 function sendMessage(text, replyTo = null, msgType = 'text', fileData = null) {
-    const msg = {
-        type: 'message',
-        text: text,
-        replyTo: replyTo,
-        msgType: msgType
-    };
-    
+    const msg = { type: 'message', text, replyTo, msgType };
     if (fileData) {
         msg.fileUrl = fileData.url;
         msg.fileName = fileData.name;
         msg.fileSize = fileData.size;
     }
-    
-    sendToServer(msg);
+    return sendToServer(msg);
 }
 
-// Отправка голосового сообщения
 function sendVoiceMessage(audioUrl, duration, replyTo = null) {
-    sendToServer({
-        type: 'voice_message',
-        audioUrl: audioUrl,
-        duration: duration,
-        replyTo: replyTo
-    });
+    return sendToServer({ type: 'voice_message', audioUrl, duration, replyTo });
 }
 
-// Редактирование сообщения
 function editMessage(messageId, newText) {
-    sendToServer({
-        type: 'edit_message',
-        messageId: messageId,
-        text: newText
-    });
+    return sendToServer({ type: 'edit_message', messageId, text: newText });
 }
 
-// Удаление сообщения
 function deleteMessage(messageId, deleteFor = 'me') {
-    sendToServer({
-        type: 'delete_message',
-        messageId: messageId,
-        deleteFor: deleteFor
-    });
+    return sendToServer({ type: 'delete_message', messageId, deleteFor });
 }
 
-// Отправка реакции
 function sendReaction(messageId, reaction) {
-    sendToServer({
-        type: 'reaction',
-        messageId: messageId,
-        reaction: reaction
-    });
+    return sendToServer({ type: 'reaction', messageId, reaction });
 }
 
-// Закрепление сообщения
 function pinMessage(messageId) {
-    sendToServer({
-        type: 'pin_message',
-        messageId: messageId
-    });
+    return sendToServer({ type: 'pin_message', messageId });
 }
 
-// Индикатор печати
 function sendTyping() {
-    sendToServer({
-        type: 'typing'
-    });
+    return sendToServer({ type: 'typing' });
 }
 
-// Создание опроса
 function createPoll(question, options, pollsType, anonymous, multiple, closeDate) {
-    sendToServer({
+    return sendToServer({
         type: pollsType === 'quiz' ? 'create_quiz' : 'create_poll',
-        question: question,
-        options: options,
-        pollsType: pollsType,
-        anonymous: anonymous,
-        multiple: multiple,
-        closeDate: closeDate
+        question, options, pollsType, anonymous, multiple, closeDate
     });
 }
 
-// Голосование
 function votePoll(pollId, option) {
-    sendToServer({
-        type: 'vote',
-        pollId: pollId,
-        option: option
-    });
+    return sendToServer({ type: 'vote', pollId, option });
 }
 
-// Закрытие опроса
 function closePoll(pollId) {
-    sendToServer({
-        type: 'close_poll',
-        pollId: pollId
-    });
+    return sendToServer({ type: 'close_poll', pollId });
 }
 
-// Отправка жалобы
 function sendReport(messageId, reason) {
-    sendToServer({
-        type: 'report',
-        messageId: messageId,
-        reason: reason
-    });
+    return sendToServer({ type: 'report', messageId, reason });
 }
 
-// Действие админа
 function adminAction(action, data) {
-    sendToServer({
-        type: 'admin_action',
-        action: action,
-        ...data
-    });
+    return sendToServer({ type: 'admin_action', action, ...data });
 }
 
-// Загрузка пользователя из localStorage
+// Загрузка/сохранение пользователя
 function loadUserFromStorage() {
     try {
         const data = localStorage.getItem('chat_user');
@@ -244,16 +231,15 @@ function loadUserFromStorage() {
     }
 }
 
-// Сохранение пользователя в localStorage
 function saveUserToStorage(user) {
     try {
         localStorage.setItem('chat_user', JSON.stringify({
             id: user.id,
             name: user.name,
             username: user.username,
-            avatar: user.avatar,
-            verified: user.verified,
-            badge: user.badge
+            avatar: user.avatar || '',
+            verified: user.verified || false,
+            badge: user.badge || ''
         }));
     } catch (e) {
         console.error('Failed to save user:', e);
@@ -264,83 +250,95 @@ function saveUserToStorage(user) {
 function handleServerMessage(data) {
     switch (data.type) {
         case 'init':
-            handleInit(data);
+            if (typeof handleInit === 'function') handleInit(data);
             break;
         case 'registered':
-            handleRegistered(data);
+            if (typeof handleRegistered === 'function') handleRegistered(data);
             break;
         case 'new_message':
-            handleNewMessage(data);
+            if (typeof handleNewMessage === 'function') handleNewMessage(data);
             break;
         case 'message_edited':
-            handleMessageEdited(data);
+            if (typeof handleMessageEdited === 'function') handleMessageEdited(data);
             break;
         case 'message_deleted':
-            handleMessageDeleted(data);
+            if (typeof handleMessageDeleted === 'function') handleMessageDeleted(data);
             break;
         case 'reactions_updated':
-            handleReactionsUpdated(data);
+            if (typeof handleReactionsUpdated === 'function') handleReactionsUpdated(data);
             break;
         case 'message_pinned':
-            handleMessagePinned(data);
+            if (typeof handleMessagePinned === 'function') handleMessagePinned(data);
             break;
         case 'typing':
-            handleTyping(data);
+            if (typeof handleTyping === 'function') handleTyping(data);
             break;
         case 'online':
-            handleOnline(data);
+            if (typeof handleOnline === 'function') handleOnline(data);
             break;
         case 'users':
-            handleUsers(data);
+            if (typeof handleUsers === 'function') handleUsers(data);
             break;
         case 'verified':
-            handleVerified(data);
+            if (typeof handleVerified === 'function') handleVerified(data);
             break;
         case 'mentioned':
-            handleMentioned(data);
+            if (typeof handleMentioned === 'function') handleMentioned(data);
             break;
         case 'new_poll':
-            handleNewPoll(data);
+            if (typeof handleNewPoll === 'function') handleNewPoll(data);
             break;
         case 'poll_updated':
-            handlePollUpdated(data);
+            if (typeof handlePollUpdated === 'function') handlePollUpdated(data);
             break;
         case 'poll_closed':
-            handlePollClosed(data);
+            if (typeof handlePollClosed === 'function') handlePollClosed(data);
             break;
         case 'username_status':
-            handleUsernameStatus(data);
+            if (typeof handleUsernameStatus === 'function') handleUsernameStatus(data);
             break;
         case 'profile_updated':
-            handleProfileUpdated(data);
+            if (typeof handleProfileUpdated === 'function') handleProfileUpdated(data);
             break;
         case 'report_submitted':
-            notifyReportSubmitted();
+            if (typeof notifyReportSubmitted === 'function') notifyReportSubmitted();
             break;
         case 'error':
-            showError(data.text);
+            if (typeof showError === 'function') showError(data.text);
+            console.error('Server error:', data.text);
             break;
     }
 }
 
-// Заглушки для обработчиков (будут переопределены в chat.js)
-function handleInit(data) { console.log('Init:', data); }
-function handleRegistered(data) { console.log('Registered:', data); }
-function handleNewMessage(data) { console.log('New message:', data); }
-function handleMessageEdited(data) { console.log('Message edited:', data); }
-function handleMessageDeleted(data) { console.log('Message deleted:', data); }
-function handleReactionsUpdated(data) { console.log('Reactions:', data); }
-function handleMessagePinned(data) { console.log('Pinned:', data); }
-function handleTyping(data) { console.log('Typing:', data); }
-function handleOnline(data) { console.log('Online:', data); }
-function handleUsers(data) { console.log('Users:', data); }
-function handleVerified(data) { console.log('Verified:', data); }
-function handleMentioned(data) { console.log('Mentioned:', data); }
-function handleNewPoll(data) { console.log('New poll:', data); }
-function handlePollUpdated(data) { console.log('Poll updated:', data); }
-function handlePollClosed(data) { console.log('Poll closed:', data); }
-function handleUsernameStatus(data) { console.log('Username status:', data); }
-function handleProfileUpdated(data) { console.log('Profile updated:', data); }
+// Заглушки для обработчиков (переопределяются в других файлах)
+window.handleInit = function(data) { console.log('Init:', data); };
+window.handleRegistered = function(data) { console.log('Registered:', data); };
+window.handleNewMessage = function(data) { console.log('New message:', data); };
+window.handleMessageEdited = function(data) {};
+window.handleMessageDeleted = function(data) {};
+window.handleReactionsUpdated = function(data) {};
+window.handleMessagePinned = function(data) {};
+window.handleTyping = function(data) {};
+window.handleOnline = function(data) {};
+window.handleUsers = function(data) {};
+window.handleVerified = function(data) {};
+window.handleMentioned = function(data) {};
+window.handleNewPoll = function(data) {};
+window.handlePollUpdated = function(data) {};
+window.handlePollClosed = function(data) {};
+window.handleUsernameStatus = function(data) {};
+window.handleProfileUpdated = function(data) {};
 
-// Инициализация WebSocket при загрузке
+// Автоподключение
 connectWebSocket();
+
+// Переподключение при восстановлении сети
+window.addEventListener('online', () => {
+    console.log('Network restored');
+    connectWebSocket();
+});
+
+window.addEventListener('offline', () => {
+    console.log('Network lost');
+    updateConnectionStatus(false);
+});

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>World Chat</title>
+    <link rel="stylesheet" href="assets/css/chat.css">
+    <link rel="stylesheet" href="assets/css/themes.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Регистрация -->
+        <div id="registration" class="overlay">
+            <div class="modal">
+                <h2 id="regTitle">World Chat</h2>
+                <p id="regSubtitle">Choose your name and username</p>
+                <div class="input-group">
+                    <input type="text" id="regName" placeholder="Name" maxlength="20">
+                </div>
+                <div class="input-group">
+                    <input type="text" id="regUsername" placeholder="Username" maxlength="15">
+                    <span id="usernameStatus"></span>
+                </div>
+                <div class="input-group" id="avatarGroup" style="display:none">
+                    <label id="avatarLabel">Avatar (optional)</label>
+                    <input type="file" id="regAvatar" accept="image/*">
+                    <button id="skipAvatar" class="btn-secondary">Skip</button>
+                </div>
+                <button id="regBtn" class="btn-primary" disabled>Enter Chat</button>
+            </div>
+        </div>
+
+        <!-- Основной чат -->
+        <div id="chatContainer" class="chat-container" style="display:none">
+            <!-- Хедер -->
+            <div class="chat-header">
+                <button id="backBtn" class="icon-btn" style="display:none">←</button>
+                <span class="icon">🌐</span>
+                <div class="header-info">
+                    <h3 id="chatTitle">World Chat</h3>
+                    <span id="chatSubtitle">Global conversation</span>
+                </div>
+                <div class="header-actions">
+                    <span id="onlineCount" class="badge">● 0</span>
+                    <button id="menuBtn" class="icon-btn" title="Menu">⋮</button>
+                </div>
+            </div>
+
+            <!-- Закреплённое сообщение -->
+            <div id="pinnedMessage" class="pinned-message" style="display:none">
+                <div class="pinned-content">
+                    <span class="pinned-icon">📌</span>
+                    <span id="pinnedText"></span>
+                </div>
+                <button id="unpinBtn" class="icon-btn-sm">✕</button>
+            </div>
+
+            <!-- Область сообщений -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="system-msg" id="welcomeMsg"></div>
+            </div>
+
+            <!-- Кнопка скролла вниз -->
+            <button id="scrollBtn" class="scroll-btn" style="display:none">
+                ↓ <span id="unreadCount" class="unread-badge">0</span>
+            </button>
+
+            <!-- Превью ответа -->
+            <div id="replyPreview" class="reply-preview" style="display:none">
+                <div class="rp-info">
+                    <span id="rpName"></span>
+                    <span id="rpText"></span>
+                </div>
+                <button id="rpClose" class="icon-btn-sm">✕</button>
+            </div>
+
+            <!-- Индикатор печати -->
+            <div id="typingIndicator" class="typing-indicator" style="display:none">
+                <span id="typingText"></span>
+            </div>
+
+            <!-- Поле ввода -->
+            <div class="input-area">
+                <button id="plusBtn" class="icon-btn">+</button>
+                <button id="cameraBtn" class="icon-btn" style="display:none">📷</button>
+                <div class="input-box">
+                    <div id="mediaPreview" class="media-preview"></div>
+                    <textarea id="msgInput" placeholder="Message..." rows="1"></textarea>
+                </div>
+                <button id="sendBtn" class="send-btn" disabled>
+                    <span id="sendIcon">➤</span>
+                </button>
+                <button id="micBtn" class="send-btn mic-btn" style="display:none">
+                    <span>🎤</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Меню (три точки) -->
+        <div id="menuDropdown" class="dropdown" style="display:none">
+            <button class="dropdown-item" data-action="settings">Settings</button>
+            <button class="dropdown-item" data-action="clear-chat">Clear Chat</button>
+            <button class="dropdown-item" data-action="delete-mode">Delete Messages</button>
+            <button class="dropdown-item" data-action="export">Export History</button>
+        </div>
+
+        <!-- Панель вложений (+) -->
+        <div id="attachMenu" class="dropdown" style="display:none">
+            <button class="dropdown-item" data-action="photo">Photo</button>
+            <button class="dropdown-item" data-action="video">Video</button>
+            <button class="dropdown-item" data-action="file">File</button>
+            <button class="dropdown-item" data-action="poll">Poll</button>
+            <button class="dropdown-item" data-action="quiz">Quiz</button>
+        </div>
+
+        <!-- Контекстное меню (ПКМ) -->
+        <div id="contextMenu" class="dropdown" style="display:none"></div>
+
+        <!-- Просмотрщик медиа -->
+        <div id="mediaViewer" class="overlay" style="display:none">
+            <button id="closeViewer" class="close-btn">✕</button>
+            <button id="viewerMenu" class="close-btn" style="right:60px">⋮</button>
+            <div id="mediaContent"></div>
+        </div>
+
+        <!-- Страница настроек -->
+        <div id="settingsPage" class="page" style="display:none"></div>
+
+        <!-- Профиль пользователя -->
+        <div id="profileModal" class="overlay" style="display:none"></div>
+
+        <!-- Подтверждение ссылки -->
+        <div id="linkModal" class="overlay" style="display:none">
+            <div class="modal">
+                <h3>External Link</h3>
+                <p>Are you sure you want to open this link?</p>
+                <p id="linkUrl" class="link-text"></p>
+                <button id="openLink" class="btn-primary">Open</button>
+                <button id="cancelLink" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Подтверждение удаления -->
+        <div id="deleteModal" class="overlay" style="display:none">
+            <div class="modal">
+                <h3>Delete Messages</h3>
+                <p id="deleteCount"></p>
+                <button id="confirmDelete" class="btn-danger">Delete</button>
+                <button id="cancelDelete" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Жалоба -->
+        <div id="reportModal" class="overlay" style="display:none">
+            <div class="modal">
+                <h3>Report Message</h3>
+                <div id="reportPreview"></div>
+                <textarea id="reportReason" placeholder="Reason for report..." rows="4"></textarea>
+                <button id="submitReport" class="btn-danger">Send Report</button>
+                <button id="cancelReport" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Опрос/Викторина -->
+        <div id="pollModal" class="overlay" style="display:none"></div>
+
+        <!-- Уведомление -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <input type="file" id="fileInput" style="display:none" multiple>
+    <input type="file" id="photoInput" style="display:none" accept="image/*" multiple>
+    <input type="file" id="videoInput" style="display:none" accept="video/*" multiple>
+    <input type="file" id="cameraInput" style="display:none" accept="image/*,video/*" capture="environment">
+
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/translate.js"></script>
+    <script src="assets/js/notifications.js"></script>
+    <script src="assets/js/websocket.js"></script>
+    <script src="assets/js/markdown.js"></script>
+    <script src="assets/js/media.js"></script>
+    <script src="assets/js/voice.js"></script>
+    <script src="assets/js/polls.js"></script>
+    <script src="assets/js/contextMenu.js"></script>
+    <script src="assets/js/profile.js"></script>
+    <script src="assets/js/search.js"></script>
+    <script src="assets/js/settings.js"></script>
+    <script src="assets/js/reports.js"></script>
+    <script src="assets/js/chat.js"></script>
+    <script src="assets/js/main.js"></script>
+</body>
+              </html>

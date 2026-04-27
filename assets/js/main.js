@@ -8,12 +8,6 @@
         emailjs.init("eK_3lZjCFvgkwvuUZ");
     })();
 
-    window.CONFIG = {
-        EMAILJS_SERVICE_ID: 'service_5sjv2tl',
-        EMAILJS_TEMPLATE_ID: 'template_4cs7weu',
-        MAX_EMAIL_REQUESTS: 2,
-    };
-
     var regState = {
         name: '',
         username: '',
@@ -49,7 +43,8 @@
     function init() {
         var savedUser = loadUserFromStorage();
         
-        if (savedUser && savedUser.name && savedUser.username && savedUser.emailVerified) {
+        if (savedUser && savedUser.name && savedUser.username) {
+            currentUser = savedUser;
             showChat();
             setTimeout(function() {
                 registerUser(savedUser.name, savedUser.username);
@@ -81,7 +76,6 @@
             tab.addEventListener('click', function() {
                 tabs.forEach(function(t) { t.classList.remove('active'); });
                 tab.classList.add('active');
-                
                 var tabName = tab.dataset.tab;
                 document.getElementById('form-register').style.display = tabName === 'register' ? 'block' : 'none';
                 document.getElementById('form-login').style.display = tabName === 'login' ? 'block' : 'none';
@@ -106,12 +100,11 @@
         codeInput.setAttribute('inputmode', 'numeric');
         codeInput.setAttribute('pattern', '[0-9]*');
 
-        // Проверка username
         var checkUsernameDebounced = debounce(function() {
             var username = usernameInput.value.trim();
             if (username.length < 3) { usernameStatus.textContent = ''; updateRegButton(); return; }
             if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-                usernameStatus.textContent = 'Invalid characters';
+                usernameStatus.textContent = 'Invalid';
                 usernameStatus.style.color = 'var(--danger)';
                 updateRegButton(); return;
             }
@@ -130,7 +123,6 @@
         }, 500);
         usernameInput.addEventListener('input', checkUsernameDebounced);
 
-        // SEND CODE
         sendCodeBtn.addEventListener('click', function() {
             var email = emailInput.value.trim();
             if (!email || !email.includes('@') || !email.includes('.')) {
@@ -146,7 +138,6 @@
             regError.style.display = 'none';
             sendCodeBtn.disabled = true;
             sendCodeBtn.textContent = 'Sending...';
-            
             regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
             regState.email = email;
 
@@ -175,7 +166,6 @@
             });
         });
 
-        // VERIFY CODE
         verifyCodeBtn.addEventListener('click', function() {
             var code = codeInput.value.trim();
             if (code === regState.generatedCode) {
@@ -208,7 +198,6 @@
         nameInput.addEventListener('input', function() { regState.name = nameInput.value.trim(); updateRegButton(); });
         passwordInput.addEventListener('input', updateRegButton);
 
-        // REGISTER
         regBtn.addEventListener('click', function() {
             if (regBtn.disabled) return;
             var name = nameInput.value.trim();
@@ -224,8 +213,9 @@
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
-                    saveUserToStorage({ id: data.userId, name: name, username: username, email: email, emailVerified: true, verified: true, badge: '', avatar: '' });
-                    currentUser = { id: data.userId, name: name, username: username, email: email, emailVerified: true, verified: true, badge: '', avatar: '' };
+                    var userData = { id: data.userId, name: name, username: username, email: email, emailVerified: true, verified: true, badge: '', avatar: '' };
+                    saveUserToStorage(userData);
+                    currentUser = userData;
                     registerUser(name, username);
                     showChat();
                     if (typeof showToast === 'function') showToast('Welcome, ' + name + '!', 'success');
@@ -265,8 +255,9 @@
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
-                    saveUserToStorage({ id: data.user.id, name: data.user.name, username: data.user.username, email: email, emailVerified: true, verified: data.user.verified, badge: data.user.badge || '', avatar: data.user.avatar || '' });
-                    currentUser = { id: data.user.id, name: data.user.name, username: data.user.username, email: email, emailVerified: true, verified: data.user.verified, badge: data.user.badge || '', avatar: data.user.avatar || '' };
+                    var userData = { id: data.user.id, name: data.user.name, username: data.user.username, email: email, emailVerified: true, verified: data.user.verified, badge: data.user.badge || '', avatar: data.user.avatar || '' };
+                    saveUserToStorage(userData);
+                    currentUser = userData;
                     registerUser(data.user.name, data.user.username);
                     showChat();
                     if (typeof showToast === 'function') showToast('Welcome back, ' + data.user.name + '!', 'success');
@@ -282,7 +273,19 @@
         });
     }
 
-    // LOGOUT
+    // Глобальные ссылки на функции из chat.js
+    window.setReply = typeof setReply === 'function' ? setReply : function() {};
+    window.cancelReply = typeof cancelReply === 'function' ? cancelReply : function() {};
+    window.startEditMessage = typeof startEditMessage === 'function' ? startEditMessage : function() {};
+    window.submitEditMessage = typeof submitEditMessage === 'function' ? submitEditMessage : function() {};
+    window.cancelEdit = typeof cancelEdit === 'function' ? cancelEdit : function() {};
+    window.scrollToMessage = typeof scrollToMessage === 'function' ? scrollToMessage : function() {};
+    window.copyToClipboard = typeof copyToClipboard === 'function' ? copyToClipboard : function(text) { navigator.clipboard.writeText(text); return true; };
+    window.openMediaViewer = typeof openMediaViewer === 'function' ? openMediaViewer : function() {};
+    window.toggleVoicePlay = typeof toggleVoicePlay === 'function' ? toggleVoicePlay : function() {};
+    window.showUserProfile = typeof showUserProfile === 'function' ? showUserProfile : function() {};
+
+    // Глобальные функции
     window.logout = function() {
         localStorage.removeItem('chat_user');
         currentUser = null;
@@ -319,6 +322,27 @@
             }
         };
         input.click();
+    };
+
+    window.exportHistory = function(format) {
+        fetch(API_URL + '/api/export/' + (format || 'json'))
+            .then(function(r) { return r.blob(); })
+            .then(function(blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'chat.' + (format || 'json');
+                a.click();
+                if (typeof showToast === 'function') showToast('Exported', 'success');
+            });
+    };
+
+    window.openProblemReport = function() {
+        var text = prompt('Describe the problem:');
+        if (text && text.trim()) {
+            sendToServer({ type: 'report', reason: text.trim() });
+            if (typeof showToast === 'function') showToast('Report sent', 'success');
+        }
     };
 
     document.addEventListener('DOMContentLoaded', init);

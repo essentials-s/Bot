@@ -2,7 +2,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 
 const TOKEN = process.env.BOT_TOKEN;
-const VERIFY_URL = process.env.VERIFY_URL || 'https://hambot-six.vercel.app';
+const VERIFY_URL = process.env.VERIFY_URL || 'https://worldchat-kappa.vercel.app/';
 
 if (!TOKEN) {
     console.error('BOT_TOKEN not set');

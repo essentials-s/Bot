@@ -22,7 +22,6 @@ var users = [];
 var polls = [];
 var pinnedMessage = null;
 var quickMessages = [];
-var verificationCodes = {};
 
 function loadData() {
     try {
@@ -93,114 +92,121 @@ function saveUser(user) {
     saveData();
 }
 
+// ===== ПРОСТОЙ ХЭШ ПАРОЛЯ =====
+function hashPassword(password) {
+    var hash = 0;
+    for (var i = 0; i < password.length; i++) {
+        var char = password.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return 'h_' + Math.abs(hash).toString(36);
+}
+
 // ===== REST API =====
+
+// Регистрация
+app.post('/api/register', function(req, res) {
+    var name = req.body.name;
+    var username = req.body.username;
+    var email = req.body.email;
+    var password = req.body.password;
+
+    if (!name || !username || !email || !password) {
+        return res.status(400).json({ success: false, error: 'All fields required' });
+    }
+
+    if (username.length < 3 || !/^[a-zA-Z0-9_]+$/.test(username)) {
+        return res.status(400).json({ success: false, error: 'Invalid username' });
+    }
+
+    if (password.length < 3) {
+        return res.status(400).json({ success: false, error: 'Password too short' });
+    }
+
+    if (findUser(username)) {
+        return res.status(400).json({ success: false, error: 'Username taken' });
+    }
+
+    if (findUserByEmail(email)) {
+        return res.status(400).json({ success: false, error: 'Email already registered' });
+    }
+
+    var userId = uuidv4();
+    var user = {
+        id: userId,
+        name: name,
+        username: username,
+        email: email,
+        password: hashPassword(password),
+        avatar: '',
+        verified: true,
+        badge: '',
+        lastSeen: Date.now()
+    };
+
+    users.push(user);
+    saveData();
+
+    res.json({
+        success: true,
+        userId: userId,
+        user: {
+            id: userId,
+            name: name,
+            username: username,
+            email: email,
+            verified: true,
+            badge: '',
+            avatar: ''
+        }
+    });
+});
+
+// Вход
+app.post('/api/login', function(req, res) {
+    var email = req.body.email;
+    var password = req.body.password;
+
+    if (!email || !password) {
+        return res.status(400).json({ success: false, error: 'Email and password required' });
+    }
+
+    var user = findUserByEmail(email);
+    if (!user) {
+        return res.status(400).json({ success: false, error: 'Account not found' });
+    }
+
+    var hashed = hashPassword(password);
+    if (user.password !== hashed) {
+        return res.status(400).json({ success: false, error: 'Wrong password' });
+    }
+
+    res.json({
+        success: true,
+        user: {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            verified: user.verified,
+            badge: user.badge || '',
+            avatar: user.avatar || ''
+        }
+    });
+});
 
 // Проверка username
 app.get('/api/check-username/:username', function(req, res) {
     var username = req.params.username;
     if (!username || username.length < 3) {
-        return res.json({ available: false, error: 'Too short' });
+        return res.json({ available: false });
     }
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        return res.json({ available: false, error: 'Invalid characters' });
+        return res.json({ available: false });
     }
     var existing = findUser(username);
     res.json({ available: !existing });
-});
-
-// Отправка кода на email (этот endpoint вызывается из EmailJS с фронтенда)
-app.post('/api/send-code', function(req, res) {
-    var email = req.body.email;
-    if (!email) {
-        return res.status(400).json({ error: 'Email required' });
-    }
-    
-    var code = Math.floor(100000 + Math.random() * 900000).toString();
-    verificationCodes[email] = {
-        code: code,
-        expires: Date.now() + 300000 // 5 минут
-    };
-    
-    console.log('Code for ' + email + ': ' + code);
-    
-    // Отправка через EmailJS происходит на фронтенде
-    // Этот endpoint просто генерирует и хранит код
-    res.json({ success: true, code: code });
-});
-
-// Проверка кода
-app.post('/api/verify-code', function(req, res) {
-    var email = req.body.email;
-    var code = req.body.code;
-    
-    if (!email || !code) {
-        return res.status(400).json({ error: 'Email and code required' });
-    }
-    
-    var data = verificationCodes[email];
-    if (!data) {
-        return res.status(400).json({ error: 'No code sent' });
-    }
-    
-    if (Date.now() > data.expires) {
-        delete verificationCodes[email];
-        return res.status(400).json({ error: 'Code expired' });
-    }
-    
-    if (data.code !== code) {
-        return res.status(400).json({ error: 'Wrong code' });
-    }
-    
-    delete verificationCodes[email];
-    res.json({ success: true, verified: true });
-});
-
-// Изменение username (требует верификацию email)
-app.post('/api/change-username', function(req, res) {
-    var userId = req.body.userId;
-    var newUsername = req.body.username;
-    var emailCode = req.body.emailCode;
-    var email = req.body.email;
-    
-    if (!userId || !newUsername || !emailCode || !email) {
-        return res.status(400).json({ error: 'Missing data' });
-    }
-    
-    // Проверяем код
-    var data = verificationCodes[email];
-    if (!data || data.code !== emailCode || Date.now() > data.expires) {
-        return res.status(400).json({ error: 'Invalid code' });
-    }
-    
-    // Проверяем username
-    if (newUsername.length < 3 || !/^[a-zA-Z0-9_]+$/.test(newUsername)) {
-        return res.status(400).json({ error: 'Invalid username' });
-    }
-    
-    var existing = findUser(newUsername);
-    if (existing && existing.id !== userId) {
-        return res.status(400).json({ error: 'Username taken' });
-    }
-    
-    var user = findUserById(userId);
-    if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-    }
-    
-    user.username = newUsername;
-    saveUser(user);
-    delete verificationCodes[email];
-    
-    // Обновляем у клиентов
-    clients.forEach(function(u, ws) {
-        if (u.id === userId) {
-            u.username = newUsername;
-            ws.send(JSON.stringify({ type: 'profile_updated', username: newUsername }));
-        }
-    });
-    broadcastUsers();
-    
-    res.json({ success: true, username: newUsername });
 });
 
 // Профиль
@@ -228,7 +234,6 @@ app.post('/api/quick-messages', function(req, res) {
     if (!text) return res.status(400).json({ error: 'Text required' });
     var user = findUser(username);
     if (!user || user.badge !== 'admin') return res.status(403).json({ error: 'Not admin' });
-    
     var msg = { id: uuidv4(), text: text, createdBy: username };
     quickMessages.push(msg);
     saveData();
@@ -239,7 +244,6 @@ app.delete('/api/quick-messages/:id', function(req, res) {
     var username = req.body.username;
     var user = findUser(username);
     if (!user || user.badge !== 'admin') return res.status(403).json({ error: 'Not admin' });
-    
     quickMessages = quickMessages.filter(function(m) { return m.id !== req.params.id; });
     saveData();
     res.json({ success: true });
@@ -349,7 +353,8 @@ function handleMessage(ws, msg) {
             name: msg.name,
             username: msg.username,
             email: savedUser.email || '',
-            verified: savedUser.verified || false,
+            password: savedUser.password || '',
+            verified: true,
             avatar: savedUser.avatar || '',
             badge: savedUser.badge || '',
             lastSeen: Date.now()
@@ -371,15 +376,16 @@ function handleMessage(ws, msg) {
             avatar: user.avatar || '',
             verified: user.verified,
             badge: user.badge,
-            email: user.email
+            email: user.email,
+            password: user.password
         });
         ws.send(JSON.stringify({ type: 'profile_updated', name: user.name }));
         broadcastUsers();
     }
     
     else if (msg.type === 'message') {
-        if (!user.name || !user.verified) {
-            ws.send(JSON.stringify({ type: 'error', text: 'Verify email first' }));
+        if (!user.name) {
+            ws.send(JSON.stringify({ type: 'error', text: 'Register first' }));
             return;
         }
         if (!checkRateLimit(user.id)) {
@@ -493,7 +499,7 @@ function handleMessage(ws, msg) {
     }
     
     else if (msg.type === 'voice_message') {
-        if (!user.name || !user.verified) return;
+        if (!user.name) return;
         var voiceMsg = {
             id: uuidv4(),
             name: user.name,

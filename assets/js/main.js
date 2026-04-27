@@ -11,8 +11,6 @@
     window.CONFIG = {
         EMAILJS_SERVICE_ID: 'service_5sjv2tl',
         EMAILJS_TEMPLATE_ID: 'template_4cs7weu',
-        MAX_NAME_LENGTH: 20,
-        MAX_USERNAME_LENGTH: 15,
         MAX_EMAIL_REQUESTS: 2,
     };
 
@@ -20,7 +18,7 @@
         name: '',
         username: '',
         email: '',
-        code: '',
+        password: '',
         generatedCode: '',
         emailVerified: false,
         codeSent: false,
@@ -28,22 +26,24 @@
 
     function getEmailRequestCount(email) {
         var today = new Date().toDateString();
-        var key = 'email_requests_' + email;
+        var key = 'er_' + email.replace(/[^a-z0-9]/gi, '');
         var data = localStorage.getItem(key);
         if (!data) return 0;
-        var parsed = JSON.parse(data);
-        if (parsed.date !== today) return 0;
-        return parsed.count || 0;
+        try {
+            var parsed = JSON.parse(data);
+            if (parsed.date !== today) return 0;
+            return parsed.count || 0;
+        } catch(e) { return 0; }
     }
 
     function incrementEmailRequestCount(email) {
         var today = new Date().toDateString();
-        var key = 'email_requests_' + email;
+        var key = 'er_' + email.replace(/[^a-z0-9]/gi, '');
         localStorage.setItem(key, JSON.stringify({ date: today, count: getEmailRequestCount(email) + 1 }));
     }
 
     function canSendEmail(email) {
-        return getEmailRequestCount(email) < CONFIG.MAX_EMAIL_REQUESTS;
+        return getEmailRequestCount(email) < 2;
     }
 
     function init() {
@@ -51,15 +51,16 @@
         
         if (savedUser && savedUser.name && savedUser.username && savedUser.emailVerified) {
             showChat();
-            enableMessageInput();
             setTimeout(function() {
                 registerUser(savedUser.name, savedUser.username);
-            }, 1000);
+            }, 800);
         } else {
             showRegistration();
         }
         
         initRegistration();
+        initLogin();
+        initTabs();
     }
 
     function showRegistration() {
@@ -70,78 +71,50 @@
     function showChat() {
         document.getElementById('registration').style.display = 'none';
         document.getElementById('chatContainer').style.display = 'flex';
-    }
-
-    function enableMessageInput() {
         var input = document.getElementById('msgInput');
-        if (input) {
-            input.disabled = false;
-            input.placeholder = 'Message...';
-        }
+        if (input) { input.disabled = false; input.placeholder = 'Message...'; }
     }
 
-    function enterChat() {
-        var nameInput = document.getElementById('regName');
-        var usernameInput = document.getElementById('regUsername');
-        var name = nameInput.value.trim();
-        var username = usernameInput.value.trim();
-
-        if (!name || !username) return;
-
-        currentUser = {
-            id: wsUserId || generateId(),
-            name: name,
-            username: username,
-            email: regState.email,
-            emailVerified: true,
-            avatar: '',
-            verified: true,
-            badge: ''
-        };
-
-        saveUserToStorage(currentUser);
-        registerUser(name, username);
-        showChat();
-        enableMessageInput();
-
-        if (typeof showToast === 'function') {
-            showToast('Welcome, ' + name + '!', 'success');
-        }
+    function initTabs() {
+        var tabs = document.querySelectorAll('.reg-tab');
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                tabs.forEach(function(t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+                
+                var tabName = tab.dataset.tab;
+                document.getElementById('form-register').style.display = tabName === 'register' ? 'block' : 'none';
+                document.getElementById('form-login').style.display = tabName === 'login' ? 'block' : 'none';
+            });
+        });
     }
 
     function initRegistration() {
         var nameInput = document.getElementById('regName');
         var usernameInput = document.getElementById('regUsername');
         var emailInput = document.getElementById('regEmail');
+        var passwordInput = document.getElementById('regPassword');
         var codeInput = document.getElementById('regCode');
         var regBtn = document.getElementById('regBtn');
-        var sendCodeBtn = document.getElementById('sendCodeBtn');
+        var sendCodeBtn = document.getElementById('sendCodeBtnRegister');
         var verifyCodeBtn = document.getElementById('verifyCodeBtn');
         var usernameStatus = document.getElementById('usernameStatus');
-        var emailStatus = document.getElementById('emailStatus');
         var codeStatus = document.getElementById('codeStatus');
         var codeGroup = document.getElementById('codeGroup');
+        var regError = document.getElementById('regError');
 
         codeInput.setAttribute('inputmode', 'numeric');
         codeInput.setAttribute('pattern', '[0-9]*');
 
-        console.log('Registration init - all elements found');
-
         // Проверка username
         var checkUsernameDebounced = debounce(function() {
             var username = usernameInput.value.trim();
-            if (username.length < 3) {
-                usernameStatus.textContent = '';
-                updateRegButton();
-                return;
-            }
+            if (username.length < 3) { usernameStatus.textContent = ''; updateRegButton(); return; }
             if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-                usernameStatus.textContent = 'Invalid';
+                usernameStatus.textContent = 'Invalid characters';
                 usernameStatus.style.color = 'var(--danger)';
-                updateRegButton();
-                return;
+                updateRegButton(); return;
             }
-            
             fetch(API_URL + '/api/check-username/' + username)
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
@@ -153,106 +126,67 @@
                         usernameStatus.style.color = 'var(--danger)';
                     }
                     updateRegButton();
-                })
-                .catch(function() {
-                    updateRegButton();
-                });
+                }).catch(function() { updateRegButton(); });
         }, 500);
-
         usernameInput.addEventListener('input', checkUsernameDebounced);
 
         // SEND CODE
         sendCodeBtn.addEventListener('click', function() {
-            console.log('=== SEND CODE CLICKED ===');
             var email = emailInput.value.trim();
-            console.log('Email:', email);
-            
             if (!email || !email.includes('@') || !email.includes('.')) {
-                emailStatus.textContent = 'Enter valid email';
-                emailStatus.style.color = 'var(--danger)';
-                console.log('Invalid email');
+                regError.textContent = 'Enter valid email';
+                regError.style.display = 'block';
                 return;
             }
-
             if (!canSendEmail(email)) {
-                emailStatus.textContent = 'Limit reached (2 per day)';
-                emailStatus.style.color = 'var(--danger)';
-                if (typeof showToast === 'function') showToast('Limit reached', 'error');
-                console.log('Limit reached');
+                regError.textContent = 'Limit: 2 emails per day';
+                regError.style.display = 'block';
                 return;
             }
-
+            regError.style.display = 'none';
             sendCodeBtn.disabled = true;
             sendCodeBtn.textContent = 'Sending...';
             
             regState.generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
             regState.email = email;
-            console.log('Generated code:', regState.generatedCode);
-            console.log('Calling EmailJS...');
 
             emailjs.send("service_5sjv2tl", "template_4cs7weu", {
                 to_name: (nameInput.value.trim() || "User"),
                 code: regState.generatedCode,
                 to_email: email
             })
-            .then(function(response) {
-                console.log('EmailJS SUCCESS:', response);
+            .then(function() {
                 incrementEmailRequestCount(email);
-                emailStatus.textContent = 'Code sent to ' + email;
-                emailStatus.style.color = 'var(--success)';
                 regState.codeSent = true;
                 codeGroup.style.display = 'block';
                 codeInput.focus();
                 sendCodeBtn.textContent = 'Resend';
                 sendCodeBtn.disabled = false;
-                
-                var remaining = CONFIG.MAX_EMAIL_REQUESTS - getEmailRequestCount(email);
-                if (remaining <= 0) {
-                    sendCodeBtn.disabled = true;
-                    sendCodeBtn.textContent = 'Limit reached';
-                }
-                
+                if (getEmailRequestCount(email) >= 2) { sendCodeBtn.disabled = true; sendCodeBtn.textContent = 'Limit'; }
                 updateRegButton();
                 if (typeof showToast === 'function') showToast('Code sent!', 'success');
             })
             .catch(function(error) {
-                console.error('EmailJS ERROR:', error);
-                emailStatus.textContent = 'Failed to send';
-                emailStatus.style.color = 'var(--danger)';
+                console.error('EmailJS:', error);
+                regError.textContent = 'Failed to send code';
+                regError.style.display = 'block';
                 sendCodeBtn.textContent = 'Send Code';
                 sendCodeBtn.disabled = false;
-                
-                var remaining = CONFIG.MAX_EMAIL_REQUESTS - getEmailRequestCount(email);
-                if (remaining <= 0) {
-                    sendCodeBtn.disabled = true;
-                    sendCodeBtn.textContent = 'Limit reached';
-                }
-                
-                if (typeof showToast === 'function') showToast('Failed', 'error');
             });
         });
 
         // VERIFY CODE
         verifyCodeBtn.addEventListener('click', function() {
             var code = codeInput.value.trim();
-            console.log('Verify code:', code, 'Expected:', regState.generatedCode);
-            
             if (code === regState.generatedCode) {
-                console.log('Code correct!');
                 regState.emailVerified = true;
                 codeStatus.textContent = 'Verified!';
                 codeStatus.style.color = 'var(--success)';
                 codeInput.disabled = true;
                 verifyCodeBtn.disabled = true;
                 updateRegButton();
-                
-                if (typeof showToast === 'function') showToast('Verified!', 'success');
-                
-                setTimeout(function() {
-                    enterChat();
-                }, 500);
+                if (typeof showToast === 'function') showToast('Email verified!', 'success');
             } else {
-                console.log('Wrong code');
                 codeStatus.textContent = 'Wrong code';
                 codeStatus.style.color = 'var(--danger)';
                 codeInput.value = '';
@@ -262,50 +196,106 @@
 
         codeInput.addEventListener('input', function() {
             codeInput.value = codeInput.value.replace(/[^0-9]/g, '');
-            if (codeInput.value.length === 6) {
-                verifyCodeBtn.click();
-            }
+            if (codeInput.value.length === 6) verifyCodeBtn.click();
         });
 
         function updateRegButton() {
             var nameValid = nameInput.value.trim().length >= 1;
-            var usernameStatusColor = usernameStatus.style.color;
-            var usernameValid = (usernameStatusColor === 'rgb(16, 185, 129)' || usernameStatus.textContent === 'Available');
-            var emailValid = regState.emailVerified;
-            
-            regBtn.disabled = !(nameValid && usernameValid && emailValid);
+            var usernameValid = (usernameStatus.style.color === 'rgb(16, 185, 129)' || usernameStatus.textContent === 'Available');
+            var passValid = passwordInput.value.length >= 3;
+            regBtn.disabled = !(nameValid && usernameValid && regState.emailVerified && passValid);
         }
+        nameInput.addEventListener('input', function() { regState.name = nameInput.value.trim(); updateRegButton(); });
+        passwordInput.addEventListener('input', updateRegButton);
 
-        nameInput.addEventListener('input', function() {
-            regState.name = nameInput.value.trim();
-            updateRegButton();
-        });
-
-        // ENTER CHAT BUTTON
+        // REGISTER
         regBtn.addEventListener('click', function() {
             if (regBtn.disabled) return;
-            enterChat();
-        });
+            var name = nameInput.value.trim();
+            var username = usernameInput.value.trim();
+            var email = regState.email;
+            var password = passwordInput.value;
 
-        emailInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                sendCodeBtn.click();
-            }
+            fetch(API_URL + '/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name, username: username, email: email, password: password })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    saveUserToStorage({ id: data.userId, name: name, username: username, email: email, emailVerified: true, verified: true, badge: '', avatar: '' });
+                    currentUser = { id: data.userId, name: name, username: username, email: email, emailVerified: true, verified: true, badge: '', avatar: '' };
+                    registerUser(name, username);
+                    showChat();
+                    if (typeof showToast === 'function') showToast('Welcome, ' + name + '!', 'success');
+                } else {
+                    regError.textContent = data.error || 'Registration failed';
+                    regError.style.display = 'block';
+                }
+            })
+            .catch(function() {
+                regError.textContent = 'Server error';
+                regError.style.display = 'block';
+            });
         });
-
-        updateRegButton();
-        console.log('Registration fully initialized');
     }
 
-    // Глобальные функции
+    function initLogin() {
+        var loginBtn = document.getElementById('loginBtn');
+        var loginEmail = document.getElementById('loginEmail');
+        var loginPassword = document.getElementById('loginPassword');
+        var loginError = document.getElementById('loginError');
+
+        loginBtn.addEventListener('click', function() {
+            var email = loginEmail.value.trim();
+            var password = loginPassword.value;
+            if (!email || !password) {
+                loginError.textContent = 'Fill all fields';
+                loginError.style.display = 'block';
+                return;
+            }
+            loginError.style.display = 'none';
+
+            fetch(API_URL + '/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, password: password })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    saveUserToStorage({ id: data.user.id, name: data.user.name, username: data.user.username, email: email, emailVerified: true, verified: data.user.verified, badge: data.user.badge || '', avatar: data.user.avatar || '' });
+                    currentUser = { id: data.user.id, name: data.user.name, username: data.user.username, email: email, emailVerified: true, verified: data.user.verified, badge: data.user.badge || '', avatar: data.user.avatar || '' };
+                    registerUser(data.user.name, data.user.username);
+                    showChat();
+                    if (typeof showToast === 'function') showToast('Welcome back, ' + data.user.name + '!', 'success');
+                } else {
+                    loginError.textContent = data.error || 'Wrong email or password';
+                    loginError.style.display = 'block';
+                }
+            })
+            .catch(function() {
+                loginError.textContent = 'Server error';
+                loginError.style.display = 'block';
+            });
+        });
+    }
+
+    // LOGOUT
+    window.logout = function() {
+        localStorage.removeItem('chat_user');
+        currentUser = null;
+        location.reload();
+    };
+
     window.changeNamePrompt = function() {
         var name = prompt('New name:', currentUser ? currentUser.name : '');
         if (name && name.trim() && currentUser) {
             currentUser.name = name.trim();
             saveUserToStorage(currentUser);
             updateProfile(name.trim());
-            showToast('Name changed', 'success');
+            if (typeof showToast === 'function') showToast('Name changed', 'success');
         }
     };
 
@@ -322,7 +312,7 @@
                         currentUser.avatar = ev.target.result;
                         saveUserToStorage(currentUser);
                         updateProfile(currentUser.name, ev.target.result);
-                        showToast('Avatar updated', 'success');
+                        if (typeof showToast === 'function') showToast('Avatar updated', 'success');
                     }
                 };
                 reader.readAsDataURL(file);
@@ -331,27 +321,5 @@
         input.click();
     };
 
-    window.exportHistory = function(format) {
-        fetch(API_URL + '/api/export/' + (format || 'json'))
-            .then(function(r) { return r.blob(); })
-            .then(function(blob) {
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                a.download = 'chat.' + (format || 'json');
-                a.click();
-                showToast('Exported', 'success');
-            });
-    };
-
-    window.openProblemReport = function() {
-        var text = prompt('Describe the problem:');
-        if (text && text.trim()) {
-            sendToServer({ type: 'report', reason: text.trim() });
-            showToast('Report sent', 'success');
-        }
-    };
-
     document.addEventListener('DOMContentLoaded', init);
-    console.log('main.js loaded');
 })();

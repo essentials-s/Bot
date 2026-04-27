@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+            background:#0a0e17;color:#fff;padding:20px;
+        }
+        .container{max-width:600px;margin:0 auto}
+        h1{font-size:24px;margin-bottom:20px}
+        .chat-list{display:flex;flex-direction:column;gap:10px}
+        .chat-item{
+            background:#1a2332;border:1px solid #1f2937;
+            border-radius:12px;padding:16px;cursor:pointer;
+        }
+        .chat-item:hover{background:#1f2937}
+        .chat-item .name{font-weight:600;margin-bottom:4px}
+        .chat-item .last{font-size:13px;color:#9ca3af}
+        .messages-area{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:16px;min-height:300px;max-height:400px;overflow-y:auto;margin-bottom:12px}
+        .msg{margin-bottom:8px;padding:8px 12px;border-radius:8px}
+        .msg.user{background:#1f2937}
+        .msg.admin{background:#2563eb}
+        .msg .time{font-size:10px;opacity:0.5}
+        .input-row{display:flex;gap:8px}
+        input{flex:1;padding:12px;background:#1f2937;border:1px solid #374151;border-radius:8px;color:#fff;font-size:14px}
+        button{padding:12px 20px;background:#3b82f6;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:14px}
+        button:hover{background:#2563eb}
+        .back-btn{background:#374151;margin-bottom:12px}
+        .back-btn:hover{background:#4b5563}
+    </style>
+</head>
+<body>
+    <div class="container" id="app">
+        <!-- Список чатов -->
+        <div id="listView">
+            <h1>💬 Чаты поддержки</h1>
+            <div class="chat-list" id="chatList"></div>
+        </div>
+
+        <!-- Окно чата -->
+        <div id="chatView" style="display:none">
+            <button class="back-btn" onclick="showList()">← Назад</button>
+            <h1 id="chatTitle"></h1>
+            <div class="messages-area" id="adminMessages"></div>
+            <div class="input-row">
+                <input id="adminInput" placeholder="Ответ...">
+                <button onclick="sendAdmin()">Отправить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'https://jsonblob.com/api/jsonBlob';
+        let currentBlobId = null;
+        let currentChatId = null;
+        let interval = null;
+
+        // ===== ПОЛУЧИТЬ ВСЕ ЧАТЫ =====
+        async function loadChats() {
+            // В реальном приложении - запрос к API
+            // Сейчас просто ищем по localStorage
+            const chats = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('blob_chat_')) {
+                    const blobId = localStorage.getItem(key);
+                    const res = await fetch(API + '/' + blobId);
+                    const data = await res.json();
+                    chats.push({
+                        id: data.chat_id,
+                        blobId: blobId,
+                        messages: data.messages || [],
+                        updated: data.updated || 0
+                    });
+                }
+            }
+
+            const chatList = document.getElementById('chatList');
+            if (chats.length === 0) {
+                chatList.innerHTML = '<div class="chat-item">Нет активных чатов</div>';
+                return;
+            }
+
+            chatList.innerHTML = chats.map(c => {
+                const last = c.messages[c.messages.length - 1];
+                return `<div class="chat-item" onclick="openChat('${c.id}','${c.blobId}')">
+                    <div class="name">${c.id}</div>
+                    <div class="last">${last ? last.text.substring(0,50) : 'Нет сообщений'}</div>
+                </div>`;
+            }).join('');
+        }
+
+        // ===== ОТКРЫТЬ ЧАТ =====
+        async function openChat(chatId, blobId) {
+            currentChatId = chatId;
+            currentBlobId = blobId;
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('chatView').style.display = 'block';
+            document.getElementById('chatTitle').textContent = 'Чат: ' + chatId;
+
+            await refreshMessages();
+
+            if (interval) clearInterval(interval);
+            interval = setInterval(refreshMessages, 2000);
+        }
+
+        async function refreshMessages() {
+            const res = await fetch(API + '/' + currentBlobId);
+            const data = await res.json();
+            const msgs = data.messages || [];
+
+            document.getElementById('adminMessages').innerHTML = msgs.map(m => `
+                <div class="msg ${m.from}">
+                    <div>${m.text}</div>
+                    <div class="time">${new Date(m.time).toLocaleString('ru-RU')}</div>
+                </div>
+            `).join('');
+        }
+
+        async function sendAdmin() {
+            const input = document.getElementById('adminInput');
+            const text = input.value.trim();
+            if (!text || !currentBlobId) return;
+
+            const res = await fetch(API + '/' + currentBlobId);
+            const data = await res.json();
+            data.messages.push({ id: Date.now(), from: 'admin', text, time: Date.now() });
+
+            await fetch(API + '/' + currentBlobId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            input.value = '';
+            await refreshMessages();
+        }
+
+        function showList() {
+            document.getElementById('listView').style.display = 'block';
+            document.getElementById('chatView').style.display = 'none';
+            if (interval) clearInterval(interval);
+            loadChats();
+        }
+
+        // ===== СТАРТ =====
+        loadChats();
+        setInterval(loadChats, 5000); // Обновление списка
+    </script>
+</body>
+</html>

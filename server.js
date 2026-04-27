@@ -111,7 +111,7 @@ db.exec(`
 `);
 
 // Конфигурация
-const BOT_USERNAME = process.env.BOT_USERNAME || 'herrmeesagentbot';
+const BOT_USERNAME = process.env.BOT_USERNAME || 'worldchatverificationbot';
 const ADMIN_PASS = process.env.ADMIN_PASS || 'admin2011';
 const RATE_LIMIT = 10;
 const RATE_WINDOW = 60000;

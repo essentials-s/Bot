@@ -1,0 +1,597 @@
+/* frontend/assets/css/admin.css */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0a0e17;
+    --bg-secondary: #111827;
+    --bg-tertiary: #1a2332;
+    --bg-input: #1f2937;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --text-primary: #e2e8f0;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --border: #1f2937;
+    --border-light: #374151;
+    --danger: #ef4444;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --radius-lg: 16px;
+    --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    --transition: 0.2s ease;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* --- Overlay --- */
+.admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.admin-modal {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 340px;
+    text-align: center;
+}
+
+.admin-modal h2 {
+    font-size: 20px;
+    margin-bottom: 6px;
+}
+
+.admin-modal p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.admin-modal input {
+    width: 100%;
+    padding: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.admin-modal input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* --- Кнопки --- */
+.btn-primary {
+    display: inline-block;
+    width: 100%;
+    padding: 10px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: scale(0.98); }
+
+.btn-secondary {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-secondary:hover { background: var(--border); }
+
+.btn-danger {
+    display: inline-block;
+    padding: 8px 16px;
+    background: var(--danger);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-danger:hover { background: #dc2626; }
+
+/* --- Контейнер --- */
+.admin-container {
+    max-width: 700px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: var(--bg-secondary);
+}
+
+/* --- Хедер --- */
+.admin-header {
+    padding: 14px 18px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.admin-header h2 {
+    font-size: 16px;
+    flex: 1;
+}
+
+.admin-header span {
+    font-size: 12px;
+    color: var(--success);
+}
+
+/* --- Табы --- */
+.admin-tabs {
+    display: flex;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    position: sticky;
+    top: 52px;
+    z-index: 9;
+}
+
+.admin-tab {
+    padding: 10px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.admin-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-input);
+}
+
+.admin-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* --- Контент --- */
+.admin-content {
+    padding: 14px;
+}
+
+.admin-tab-content {
+    display: none;
+    animation: fadeIn 0.2s ease;
+}
+
+.admin-tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Сообщения --- */
+.admin-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-msg-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 12px;
+    position: relative;
+}
+
+.admin-msg-item .msg-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+}
+
+.admin-msg-item .msg-user {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.admin-msg-item .msg-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.admin-msg-item .msg-text {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.admin-msg-item .msg-actions-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.admin-msg-item .msg-action-btn {
+    padding: 5px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.admin-msg-item .msg-action-btn:hover {
+    background: var(--border);
+    color: var(--text-primary);
+}
+
+.admin-msg-item .msg-action-btn.danger {
+    color: var(--danger);
+}
+
+.admin-msg-item .msg-action-btn.danger:hover {
+    background: rgba(239,68,68,0.1);
+    border-color: var(--danger);
+}
+
+/* Поле ответа */
+.admin-reply-box {
+    display: none;
+    margin-top: 8px;
+    gap: 6px;
+    align-items: center;
+}
+
+.admin-reply-box.active {
+    display: flex;
+}
+
+.admin-reply-box input {
+    flex: 1;
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+}
+
+.admin-reply-box input:focus {
+    border-color: var(--accent);
+}
+
+.admin-reply-box .quick-reply-btns {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.admin-reply-box .quick-reply-btn {
+    padding: 4px 8px;
+    background: var(--accent);
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.admin-reply-box .quick-reply-btn:hover {
+    background: var(--accent-hover);
+}
+
+/* --- Быстрые сообщения --- */
+.quick-msgs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.quick-msgs-header h3 {
+    font-size: 15px;
+}
+
+.quick-msgs-header button {
+    width: auto;
+    padding: 6px 14px;
+}
+
+.quick-msg-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.quick-msg-item .quick-msg-text {
+    font-size: 13px;
+    flex: 1;
+    word-break: break-word;
+}
+
+.quick-msg-item .quick-msg-delete {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    flex-shrink: 0;
+}
+
+.quick-msg-item .quick-msg-delete:hover {
+    opacity: 0.7;
+}
+
+#addQuickMsgForm textarea {
+    width: 100%;
+    padding: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 13px;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+}
+
+#addQuickMsgForm textarea:focus {
+    border-color: var(--accent);
+}
+
+/* --- Кастомизация --- */
+.customize-section {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.customize-section h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    color: var(--text-secondary);
+}
+
+.customize-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+}
+
+.customize-row:last-child {
+    border-bottom: none;
+}
+
+.customize-row label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.customize-row input[type="text"] {
+    width: 140px;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    outline: none;
+    text-align: right;
+}
+
+.customize-row input[type="text"]:focus {
+    border-color: var(--accent);
+}
+
+.customize-row input[type="color"] {
+    width: 40px;
+    height: 30px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    cursor: pointer;
+    background: transparent;
+    padding: 2px;
+}
+
+/* Аватар бота */
+.bot-avatar-preview {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    background-size: cover;
+    background-position: center;
+}
+
+/* Превью сообщения */
+.msg-preview {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+}
+
+.msg-preview-name {
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.msg-preview-bubble {
+    display: inline-block;
+    padding: 8px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    background: var(--bot-bg, #1e3a5f);
+    border: 1px solid var(--bot-border, #2563eb);
+    color: var(--bot-text, #e2e8f0);
+}
+
+.msg-preview-tag {
+    font-size: 10px;
+    color: var(--bot-tag-color, #60a5fa);
+    display: block;
+}
+
+/* --- Пользователи --- */
+.admin-user-item {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-user-item .user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-user-item .user-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.admin-user-item .user-username {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.admin-user-item .user-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.admin-user-item .user-badge.admin {
+    background: var(--accent);
+    color: #fff;
+}
+
+.admin-user-item .user-badge.moderator {
+    background: var(--warning);
+    color: #000;
+}
+
+.admin-user-item .user-badge.vip {
+    background: #8b5cf6;
+    color: #fff;
+}
+
+.admin-user-item .user-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.admin-user-item .user-action-btn {
+    padding: 4px 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.admin-user-item .user-action-btn:hover {
+    background: var(--border);
+}
+
+/* --- Toast --- */
+.admin-toast {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-120px);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-light);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 12px;
+    z-index: 300;
+    transition: transform 0.3s ease;
+    pointer-events: none;
+}
+
+.admin-toast.show {
+    transform: translateX(-50%) translateY(0);
+}
